@@ -7,6 +7,7 @@
     <!--      មើលទាំងអស់-->
     <!--    </h2>-->
   </div>
+
   <v-row>
     <v-col
       v-for="menu in menus"
@@ -31,6 +32,7 @@
       </v-card>
     </v-col>
   </v-row>
+
   <div class="d-flex flex-wrap justify-space-between">
     <h2 class="text-h5 font-weight-bold my-4">
       {{ $t('applications') }}
@@ -39,6 +41,7 @@
     <!--      មើលទាំងអស់-->
     <!--    </h2>-->
   </div>
+
   <v-row>
     <v-col
       v-for="app in apps"
@@ -71,7 +74,7 @@
 
   const menus = computed(() => [
     {
-      href: 'https://vuetifyjs.com/',
+      href: '/services/inspection',
       icon: 'carbon:vehicle-connected',
       subtitle: 'ដាក់ពាក្យ បន្ដសុពលភាពឆៀក',
       title: 'ដាក់ពាក្យឆៀក',

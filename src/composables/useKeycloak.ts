@@ -57,7 +57,7 @@ export function useKeycloak () {
       init: () => Promise.resolve(true),
       login: () => Promise.resolve(),
       logout: () => Promise.resolve(),
-      updateToken: (minValidity: number) => Promise.resolve(false),
+      updateToken: (_minValidity: number) => Promise.resolve(false),
       getToken: () => 'mock-token-xyz123',
       getUserInfo: (): KeycloakUserInfo | null => mockUser,
     }
@@ -70,7 +70,9 @@ export function useKeycloak () {
   })
 
   return {
-    init: () => keycloak.init({ onLoad: 'login-required' }),
+    // Keep the legacy Keycloak integration available without making public
+    // MPWT routes (including Vehicle Inspection service information) private.
+    init: () => keycloak.init({ onLoad: 'check-sso' }),
     login: () => keycloak.login(),
     logout: () => keycloak.logout(),
     updateToken: (minValidity: number) => keycloak.updateToken(minValidity),

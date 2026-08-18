@@ -1,4 +1,4 @@
-import {fileURLToPath} from "node:url";
+import { fileURLToPath } from 'node:url'
 import Vue from '@vitejs/plugin-vue'
 import AutoImport from 'unplugin-auto-import/vite'
 import Fonts from 'unplugin-fonts/vite'
@@ -12,7 +12,10 @@ import Vuetify, { transformAssetUrls } from 'vite-plugin-vuetify'
 export default defineConfig({
   plugins: [
     VueRouter({ dts: 'src/typed-router.d.ts' }),
-    Layouts(),
+    // Inspection child routes supply their own service layout. Without this,
+    // unplugin-vue-router can retain the public parent page's default layout
+    // around those children and render both shells.
+    Layouts({ inheritDefaultLayout: false }),
     AutoImport({
       imports: ['vue', VueRouterAutoImports, { pinia: ['defineStore', 'storeToRefs'] }],
       dts: 'src/auto-imports.d.ts',

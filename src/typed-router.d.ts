@@ -32,6 +32,17 @@ declare module 'vue-router/auto-routes' {
     '/apps/service-tracking/form': RouteRecordInfo<'/apps/service-tracking/form', '/apps/service-tracking/form', Record<never, never>, Record<never, never>>,
     '/notification': RouteRecordInfo<'/notification', '/notification', Record<never, never>, Record<never, never>>,
     '/services/inspection/': RouteRecordInfo<'/services/inspection/', '/services/inspection', Record<never, never>, Record<never, never>>,
-    '/services/inspection/form': RouteRecordInfo<'/services/inspection/form', '/services/inspection/form', Record<never, never>, Record<never, never>>,
+    '/services/inspection/applications/': RouteRecordInfo<'/services/inspection/applications/', '/services/inspection/applications', Record<never, never>, Record<never, never>>,
+    '/services/inspection/applications/[id]': RouteRecordInfo<'/services/inspection/applications/[id]', '/services/inspection/applications/:id', { id: ParamValue<true> }, { id: ParamValue<false> }>,
+    '/services/inspection/dashboard': RouteRecordInfo<'/services/inspection/dashboard', '/services/inspection/dashboard', Record<never, never>, Record<never, never>>,
+    '/services/inspection/inspection-history': RouteRecordInfo<'/services/inspection/inspection-history', '/services/inspection/inspection-history', Record<never, never>, Record<never, never>>,
+    '/services/inspection/login': RouteRecordInfo<'/services/inspection/login', '/services/inspection/login', Record<never, never>, Record<never, never>>,
+    '/services/inspection/profile': RouteRecordInfo<'/services/inspection/profile', '/services/inspection/profile', Record<never, never>, Record<never, never>>,
+    '/services/inspection/renewal/': RouteRecordInfo<'/services/inspection/renewal/', '/services/inspection/renewal', Record<never, never>, Record<never, never>>,
+    '/services/inspection/renewal/documents': RouteRecordInfo<'/services/inspection/renewal/documents', '/services/inspection/renewal/documents', Record<never, never>, Record<never, never>>,
+    '/services/inspection/renewal/review': RouteRecordInfo<'/services/inspection/renewal/review', '/services/inspection/renewal/review', Record<never, never>, Record<never, never>>,
+    '/services/inspection/renewal/scheduling': RouteRecordInfo<'/services/inspection/renewal/scheduling', '/services/inspection/renewal/scheduling', Record<never, never>, Record<never, never>>,
+    '/services/inspection/vehicles/': RouteRecordInfo<'/services/inspection/vehicles/', '/services/inspection/vehicles', Record<never, never>, Record<never, never>>,
+    '/services/inspection/vehicles/[id]': RouteRecordInfo<'/services/inspection/vehicles/[id]', '/services/inspection/vehicles/:id', { id: ParamValue<true> }, { id: ParamValue<false> }>,
   }
 }
