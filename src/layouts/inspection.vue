@@ -1,4 +1,6 @@
 <script setup lang="ts">
+  import InspectionHeader from '@/modules/inspection/shared/components/InspectionHeader.vue'
+  import InspectionSidebar from '@/modules/inspection/shared/components/InspectionSidebar.vue'
   const drawer = ref(true)
 </script>
 

@@ -10,8 +10,10 @@ import { setupLayouts } from 'virtual:generated-layouts'
 // @ts-ignore
 import { createRouter, createWebHistory } from 'vue-router/auto'
 import { routes } from 'vue-router/auto-routes'
+import { useInspectionAuthStore } from '@/modules/inspection/auth/stores/auth.store'
+import { showInspectionLoginRequiredNotice } from '@/modules/inspection/auth/utils/access-notice'
+import { inspectionRedirectOrDashboard } from '@/modules/inspection/auth/utils/auth.utils'
 import pinia from '@/stores'
-import { useInspectionAuthStore } from '@/stores/inspectionAuth'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -19,21 +21,28 @@ const router = createRouter({
 })
 
 router.beforeEach(async (to: RouteLocationNormalized) => {
+  const inspectionAuth = useInspectionAuthStore(pinia)
+
+  if (to.meta.inspectionAuthPage) {
+    await inspectionAuth.restoreSession()
+    if (inspectionAuth.isCitizen) {
+      return inspectionRedirectOrDashboard(to.query.redirect)
+    }
+    return true
+  }
+
   if (!to.meta.requiresInspectionAuth) {
     return true
   }
 
-  const inspectionAuth = useInspectionAuthStore(pinia)
   await inspectionAuth.restoreSession()
 
   if (inspectionAuth.isCitizen) {
     return true
   }
 
-  return {
-    path: '/services/inspection/login',
-    query: { redirect: to.fullPath },
-  }
+  showInspectionLoginRequiredNotice()
+  return { path: '/services/inspection/dashboard' }
 })
 
 // Workaround for https://github.com/vitejs/vite/issues/11804

@@ -3,9 +3,9 @@
 </route>
 
 <script setup lang="ts">
-  import InspectionPagePlaceholder from '@/components/inspection/InspectionPagePlaceholder.vue'
+  import ProfileView from '@/modules/inspection/citizen/profile/ProfileView.vue'
 </script>
 
 <template>
-  <InspectionPagePlaceholder description="inspection_profile_placeholder" title="inspection_profile_settings" />
+  <ProfileView />
 </template>

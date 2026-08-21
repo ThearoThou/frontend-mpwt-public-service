@@ -1,11 +1,11 @@
 <route lang="json">
-{ "meta": { "layout": "inspection", "requiresInspectionAuth": true } }
+{ "meta": { "layout": "inspection" } }
 </route>
 
 <script setup lang="ts">
-  import InspectionPagePlaceholder from '@/components/inspection/InspectionPagePlaceholder.vue'
+  import DashboardView from '@/modules/inspection/citizen/dashboard/DashboardView.vue'
 </script>
 
 <template>
-  <InspectionPagePlaceholder description="inspection_dashboard_placeholder" title="inspection_dashboard" />
+  <DashboardView />
 </template>

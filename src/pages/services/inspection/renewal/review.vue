@@ -3,9 +3,9 @@
 </route>
 
 <script setup lang="ts">
-  import InspectionPagePlaceholder from '@/components/inspection/InspectionPagePlaceholder.vue'
+  import RenewalReviewView from '@/modules/inspection/citizen/renewal/RenewalReviewView.vue'
 </script>
 
 <template>
-  <InspectionPagePlaceholder description="inspection_step_three_placeholder" title="inspection_step_three" />
+  <RenewalReviewView />
 </template>

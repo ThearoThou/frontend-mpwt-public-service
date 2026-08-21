@@ -3,9 +3,9 @@
 </route>
 
 <script setup lang="ts">
-  import InspectionPagePlaceholder from '@/components/inspection/InspectionPagePlaceholder.vue'
+  import VehicleListView from '@/modules/inspection/citizen/vehicles/VehicleListView.vue'
 </script>
 
 <template>
-  <InspectionPagePlaceholder description="inspection_vehicles_placeholder" title="inspection_my_vehicles" />
+  <VehicleListView />
 </template>

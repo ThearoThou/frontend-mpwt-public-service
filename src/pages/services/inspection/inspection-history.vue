@@ -3,9 +3,9 @@
 </route>
 
 <script setup lang="ts">
-  import InspectionPagePlaceholder from '@/components/inspection/InspectionPagePlaceholder.vue'
+  import InspectionHistoryView from '@/modules/inspection/citizen/inspection-history/InspectionHistoryView.vue'
 </script>
 
 <template>
-  <InspectionPagePlaceholder description="inspection_history_placeholder" title="inspection_history" />
+  <InspectionHistoryView />
 </template>
