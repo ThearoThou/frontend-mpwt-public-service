@@ -41,6 +41,13 @@ router.beforeEach(async (to: RouteLocationNormalized) => {
     return true
   }
 
+  if (to.meta.redirectGuestToInspectionLogin) {
+    return {
+      path: '/services/inspection/login',
+      query: { redirect: to.fullPath },
+    }
+  }
+
   showInspectionLoginRequiredNotice()
   return { path: '/services/inspection/dashboard' }
 })

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+  import InspectionFooter from '@/modules/inspection/shared/components/InspectionFooter.vue'
   import InspectionHeader from '@/modules/inspection/shared/components/InspectionHeader.vue'
   import InspectionSidebar from '@/modules/inspection/shared/components/InspectionSidebar.vue'
   const drawer = ref(true)
@@ -7,15 +8,16 @@
 <template>
   <v-layout class="inspection-layout" full-height>
     <InspectionSidebar v-model="drawer" />
+    <InspectionHeader @toggle-navigation="drawer = !drawer" />
 
-    <v-main class="bg-grey-lighten-4">
-      <InspectionHeader @toggle-navigation="drawer = !drawer" />
-
-      <v-container class="py-8 px-4 px-md-8" fluid>
+    <v-main class="inspection-main">
+      <v-container class="inspection-page py-5 px-4 px-md-6" fluid>
         <div class="inspection-content mx-auto">
           <router-view />
         </div>
       </v-container>
+
+      <InspectionFooter />
     </v-main>
   </v-layout>
 </template>
@@ -25,7 +27,19 @@
     min-height: 100vh;
   }
 
-  .inspection-content {
-    max-width: 1440px;
+  .inspection-main {
+    background: #fbf9fd;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
   }
+
+  .inspection-page {
+    flex: 1 0 auto;
+  }
+
+  .inspection-content {
+    max-width: 1180px;
+  }
+
 </style>

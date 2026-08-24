@@ -1,5 +1,5 @@
 <route lang="json">
-{ "meta": { "layout": "inspection", "requiresInspectionAuth": true } }
+{ "meta": { "layout": "inspection", "requiresInspectionAuth": true, "redirectGuestToInspectionLogin": true } }
 </route>
 
 <script setup lang="ts">
