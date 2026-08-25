@@ -1,6 +1,6 @@
 import { isAxiosError } from 'axios'
 
-type ApiErrorResponse = { code?: string, message?: string | string[] }
+type ApiErrorResponse = { code?: string }
 
 export type InspectionAuthValidationIssue = string
 
@@ -107,7 +107,7 @@ export function getInspectionAuthError (error: unknown, fallback: string): strin
   if (data?.code && messages[data.code]) {
     return messages[data.code]
   }
-  return typeof data?.message === 'string' && data.message.trim() ? data.message : fallback
+  return fallback
 }
 
 export function isSafeInspectionRedirect (redirect: unknown): redirect is string {

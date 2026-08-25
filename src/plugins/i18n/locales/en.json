@@ -188,3 +188,4 @@
   "inspection_error_registration_conflict": "Unable to create this account with the supplied details.",
   "inspection_error_citizen_only": "This service is available to citizen accounts only."
 }
+  "inspection_verification_code_sent": "A verification code has been sent if this account is eligible.",
