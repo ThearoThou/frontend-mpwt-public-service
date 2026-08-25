@@ -31,3 +31,31 @@ export interface ApiPaginatedResponse<T> {
     totalPages: number
   }
 }
+
+export interface CitizenFeeEstimate {
+  inspectionFeeKhr: string
+  serviceFeeKhr: string
+  baseAmount: string
+  lateDays: number
+  lateFee: string
+  totalAmount: string
+  currency: string
+}
+
+export type ApplicationDocumentType = 'VEHICLE_REGISTRATION_CARD' | 'PREVIOUS_INSPECTION_CERTIFICATE' | 'CITIZEN_ID_CARD'
+
+export interface ApplicationDocument {
+  id: string
+  applicationId: string
+  documentType: ApplicationDocumentType
+  versionNumber: number
+  isCurrent: boolean
+  replacesDocumentId: string | null
+  originalFileName: string
+  mimeType: string
+  fileSizeBytes: string
+  status: 'PENDING' | 'APPROVED' | 'REJECTED'
+  uploadedAt: string
+  createdAt: string
+  updatedAt: string
+}
