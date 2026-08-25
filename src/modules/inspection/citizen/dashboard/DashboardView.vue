@@ -1,17 +1,24 @@
 <script setup lang="ts">
   import type { Vehicle } from '@/modules/inspection/citizen/vehicles/types/vehicle.types'
+  import { isAxiosError } from 'axios'
   import { useI18n } from 'vue-i18n'
+  import { useRouter } from 'vue-router'
   import { useInspectionAuthStore } from '@/modules/inspection/auth/stores/auth.store'
+  import { inspectionApplicationService } from '@/modules/inspection/citizen/applications/services/application.service'
   import { inspectionVehicleService } from '@/modules/inspection/citizen/vehicles/services/vehicle.service'
 
+  type ApiErrorResponse = { code?: string }
   type InspectionState = 'expired' | 'expiring' | 'valid'
 
-  const { locale } = useI18n()
+  const { locale, t } = useI18n()
+  const router = useRouter()
   const authStore = useInspectionAuthStore()
   const sessionCheckComplete = ref(false)
   const vehicles = ref<Vehicle[]>([])
   const loadingVehicles = ref(false)
   const vehicleLoadError = ref(false)
+  const creatingDraft = ref(false)
+  const renewalError = ref<string | null>(null)
   const visibleVehicles = computed(() => vehicles.value.slice(0, 3))
 
   onMounted(async () => {
@@ -59,6 +66,62 @@
   function formatVehicleModel (vehicle: Vehicle) {
     return [vehicle.make, vehicle.model, vehicle.manufactureYear].filter(Boolean).join(' ')
   }
+
+  function plateTypeLabel (vehicle: Vehicle) {
+    if (vehicle.plateCategory === 'PERSONALIZED_CAMBODIA') return t('inspection_plate_cambodia')
+    if (vehicle.plateProvince === 'ភ្នំពេញ' || vehicle.plateProvince?.toLowerCase() === 'phnom penh') return t('inspection_plate_phnom_penh')
+    return vehicle.plateProvince || t('inspection_plate_category_province')
+  }
+
+  async function continueRenewal (vehicle: Vehicle) {
+    if (creatingDraft.value) return
+
+    creatingDraft.value = true
+    renewalError.value = null
+    try {
+      const application = await inspectionApplicationService.createDraft(vehicle.id)
+      await router.push({ path: '/services/inspection/renewal/documents', query: { applicationId: application.id } })
+    } catch (error) {
+      if (isUnfinishedApplicationError(error)) {
+        await resumeExistingDraft(vehicle.id)
+        return
+      }
+
+      renewalError.value = getRenewalErrorMessage(error)
+    } finally {
+      creatingDraft.value = false
+    }
+  }
+
+  function isUnfinishedApplicationError (error: unknown): boolean {
+    return isAxiosError<ApiErrorResponse>(error)
+      && error.response?.data?.code === 'UNFINISHED_APPLICATION_ALREADY_EXISTS'
+  }
+
+  function getRenewalErrorMessage (error: unknown): string {
+    if (isAxiosError<ApiErrorResponse>(error)
+      && error.response?.data?.code === 'VEHICLE_CLASSIFICATION_INCOMPLETE') {
+      return 'inspection_vehicle_classification_incomplete'
+    }
+
+    return 'inspection_draft_creation_error'
+  }
+
+  async function resumeExistingDraft (vehicleId: string) {
+    try {
+      const applications = await inspectionApplicationService.listCitizenApplications()
+      const draft = applications.find(application => application.vehicleId === vehicleId && application.status === 'DRAFT')
+
+      if (draft !== undefined) {
+        await router.push({ path: '/services/inspection/renewal/documents', query: { applicationId: draft.id } })
+        return
+      }
+    } catch {
+      // Fall through to the localized error below.
+    }
+
+    renewalError.value = 'inspection_unfinished_application_error'
+  }
 </script>
 
 <template>
@@ -81,6 +144,16 @@
     </v-sheet>
 
     <template v-if="sessionCheckComplete && authStore.isCitizen">
+      <v-alert
+        v-if="renewalError"
+        class="mt-4"
+        density="compact"
+        type="error"
+        variant="tonal"
+      >
+        {{ $t(renewalError) }}
+      </v-alert>
+
       <v-card
         border
         class="dashboard-notice pa-3 pa-md-4 mt-4"
@@ -123,7 +196,7 @@
             </div>
 
             <div class="mt-4">
-              <h3 class="text-h6 font-weight-bold mb-1">{{ vehicle.plateDisplayLabelKh || vehicle.plateNumber }}</h3>
+              <h3 class="dashboard-vehicle-plate mb-1"><span>{{ plateTypeLabel(vehicle) }}</span>{{ vehicle.plateNumber }}</h3>
               <p class="text-subtitle-1 text-primary font-weight-bold mb-2">{{ formatVehicleModel(vehicle) }}</p>
               <p class="text-body-2 text-medium-emphasis mb-4">{{ vehicle.vehicleType }}<span v-if="vehicle.vehicleClass"> · {{ vehicle.vehicleClass }}</span></p>
 
@@ -140,8 +213,9 @@
                 v-if="getInspectionState(vehicle) !== 'valid'"
                 class="flex-grow-1"
                 color="primary"
+                :loading="creatingDraft"
                 prepend-icon="mdi-refresh"
-                to="/services/inspection/renewal"
+                @click="continueRenewal(vehicle)"
               >
                 {{ $t('inspection_dashboard_renew_vehicle') }}
               </v-btn>
@@ -154,14 +228,34 @@
 </template>
 
 <style scoped>
-  .dashboard-hero { background: #2a3472; color: white; }
+  .dashboard-hero {
+    background-color: #2a3472;
+    background-image:
+      linear-gradient(90deg, rgba(42, 52, 114, .97) 0%, rgba(42, 52, 114, .92) 44%, rgba(42, 52, 114, .68) 100%),
+      url('@/assets/inspection/vehicle-inspection-hero.png');
+    background-position: center, center right;
+    background-repeat: no-repeat;
+    background-size: cover;
+    color: white;
+  }
   .dashboard-hero-title { font-size: clamp(1.55rem, 2.2vw, 2.25rem); font-weight: 700; line-height: 1.25; }
   .dashboard-hero-copy { color: #c1c9ee; font-size: clamp(.9rem, 1.1vw, 1rem); line-height: 1.55; max-width: 760px; }
   .dashboard-notice { cursor: pointer; transition: border-color .15s ease, transform .15s ease; }
   .dashboard-notice:hover { border-color: #2a3472 !important; transform: translateY(-1px); }
   .vehicle-dashboard-card { height: 100%; }
+  .dashboard-vehicle-plate { align-items: center; color: #20212a; display: flex; flex-wrap: wrap; font-size: 1.15rem; font-weight: 800; gap: 7px; line-height: 1.3; }
+  .dashboard-vehicle-plate span { color: #3a3b43; font-weight: 700; }
   .inspection-expiry { background: #f4f2f6; color: #363640; }
   .inspection-expiry--expired { background: #fff0f0; color: #bb1e22; }
   .inspection-expiry--expiring { background: #fff9e7; color: #9a530d; }
   .inspection-expiry--valid { background: #effbf3; color: #18733a; }
+
+  @media (max-width: 600px) {
+    .dashboard-hero {
+      background-image:
+        linear-gradient(90deg, rgba(42, 52, 114, .97) 0%, rgba(42, 52, 114, .9) 100%),
+        url('@/assets/inspection/vehicle-inspection-hero.png');
+      background-position: center, center;
+    }
+  }
 </style>

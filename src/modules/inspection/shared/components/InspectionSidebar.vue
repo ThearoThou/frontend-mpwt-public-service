@@ -12,7 +12,7 @@
     { icon: 'mdi-home', title: 'inspection_dashboard', to: '/services/inspection/dashboard' },
     { icon: 'mdi-car-outline', title: 'inspection_my_vehicles', to: '/services/inspection/vehicles' },
     { icon: 'mdi-file-document-outline', title: 'inspection_my_applications', to: '/services/inspection/applications' },
-    { icon: 'mdi-bell-outline', title: 'inspection_history', to: '/services/inspection/inspection-history' },
+    { icon: 'mdi-history', title: 'inspection_history', to: '/services/inspection/inspection-history' },
     { icon: 'mdi-account-outline', title: 'inspection_profile_settings', to: '/services/inspection/profile' },
   ])
 
@@ -23,10 +23,7 @@
       return
     }
 
-    await router.push({
-      path: '/services/inspection/login',
-      query: { redirect: '/services/inspection/dashboard' },
-    })
+    await router.push('/services/inspection')
   }
 </script>
 
@@ -63,11 +60,11 @@
         <v-btn
           block
           class="sidebar-leave-action justify-start"
-          prepend-icon="mdi-logout"
+          :prepend-icon="authStore.isAuthenticated ? 'mdi-logout' : 'mdi-exit-to-app'"
           variant="text"
           @click="leaveService"
         >
-          {{ authStore.isAuthenticated ? $t('logout') : $t('inspection_sign_in') }}
+          {{ authStore.isAuthenticated ? $t('logout') : $t('inspection_exit') }}
         </v-btn>
       </div>
     </template>
@@ -76,10 +73,13 @@
 
 <style scoped>
   .inspection-sidebar { color: white; }
+  .inspection-sidebar :deep(.v-navigation-drawer__content) { display: flex; flex-direction: column; min-height: 0; }
+  .inspection-sidebar :deep(.v-navigation-drawer__append) { background: #2a3472; border-top: 1px solid rgba(255, 255, 255, .2); flex: 0 0 auto; }
   .sidebar-brand { text-align: center; }
   .sidebar-logo { width: 64px; max-height: 64px; }
   .sidebar-ministry { color: white; font-size: 1.35rem; font-weight: 700; line-height: 1.25; }
   .sidebar-ministry-subtitle { color: white; font-size: .75rem; font-weight: 700; letter-spacing: .03em; line-height: 1.7; margin-inline: auto; max-width: 180px; text-align: center; }
+  .sidebar-navigation { flex: 1 1 auto; overflow-y: auto; }
   .sidebar-navigation :deep(.v-list-item) { min-height: 52px; border-radius: 10px; font-size: .94rem; font-weight: 700; }
   .sidebar-navigation :deep(.v-list-item--active) { background: #8698ca; }
   .sidebar-navigation :deep(.v-list-item__prepend > .v-icon) { margin-inline-end: 14px; opacity: 1; }

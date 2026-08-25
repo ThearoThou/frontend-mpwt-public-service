@@ -21,3 +21,13 @@ export interface RenewalApplication {
 export interface ApiDataResponse<T> {
   data: T
 }
+
+export interface ApiPaginatedResponse<T> {
+  data: T
+  meta: {
+    page: number
+    limit: number
+    total: number
+    totalPages: number
+  }
+}
