@@ -1,12 +1,13 @@
 <script lang="ts" setup>
-  import { ref } from 'vue'
+  import { useI18n } from 'vue-i18n'
   import { useRouter } from 'vue-router'
 
   const router = useRouter()
-  const locale = ref<'en' | 'km'>((localStorage.getItem('locale') as 'en' | 'km') || 'km')
+  const { locale } = useI18n()
+  const activeLocale = computed<'en' | 'kh'>(() => locale.value === 'en' ? 'en' : 'kh')
 
   const content = {
-    km: {
+    kh: {
       title: 'មិនរកឃើញទំព័រ',
       subtitle: '404',
       description: 'សុំទោស! ទំព័រដែលអ្នកកំពុងស្វែងរកមិនមានទេ។',
@@ -46,7 +47,7 @@
             <!-- 404 Large Number -->
             <div class="error-number mb-4">
               <h1 class="display-404">
-                {{ content[locale].subtitle }}
+                {{ content[activeLocale].subtitle }}
               </h1>
             </div>
 
@@ -59,15 +60,16 @@
 
             <!-- Title -->
             <h2 class="text-h3 font-weight-bold mb-4">
-              {{ content[locale].title }}
+              {{ content[activeLocale].title }}
             </h2>
 
             <!-- Description -->
             <p class="text-h6 text-medium-emphasis mb-2">
-              {{ content[locale].description }}
+              {{ content[activeLocale].description }}
             </p>
+
             <p class="text-body-1 text-medium-emphasis mb-8">
-              {{ content[locale].suggestions }}
+              {{ content[activeLocale].suggestions }}
             </p>
 
             <!-- Action Buttons -->
@@ -79,7 +81,7 @@
                 variant="flat"
                 @click="goHome"
               >
-                {{ content[locale].homeButton }}
+                {{ content[activeLocale].homeButton }}
               </v-btn>
 
               <v-btn
@@ -89,7 +91,7 @@
                 variant="outlined"
                 @click="goBack"
               >
-                {{ locale === 'km' ? 'ត្រឡប់ក្រោយ' : 'Go Back' }}
+                {{ activeLocale === 'kh' ? 'ត្រឡប់ក្រោយ' : 'Go Back' }}
               </v-btn>
             </div>
 
@@ -97,17 +99,18 @@
             <v-card class="mx-auto" max-width="500" variant="tonal">
               <v-card-text>
                 <p class="text-subtitle-2 mb-3">
-                  {{ locale === 'km' ? 'តំណរហ័សៈ' : 'Quick Links:' }}
+                  {{ activeLocale === 'kh' ? 'តំណរហ័សៈ' : 'Quick Links:' }}
                 </p>
+
                 <v-chip-group>
                   <v-chip
                     v-for="link in [
-                    { title: locale === 'km' ? 'ទំព័រដើម' : 'Home', to: '/' },
-                    { title: locale === 'km' ? 'កម្មវិធី' : 'App', to: '/app' },
-                    { title: locale === 'km' ? 'សេវា' : 'Service', to: '/service' },
-                    { title: locale === 'km' ? 'ដំណឹង' : 'News', to: '/news' },
-                    { title: locale === 'km' ? 'អំពីកម្មវីធី' : 'About', to: '/about' },
-                  ]"
+                      { title: activeLocale === 'kh' ? 'ទំព័រដើម' : 'Home', to: '/' },
+                      { title: activeLocale === 'kh' ? 'កម្មវិធី' : 'App', to: '/app' },
+                      { title: activeLocale === 'kh' ? 'សេវា' : 'Service', to: '/service' },
+                      { title: activeLocale === 'kh' ? 'ដំណឹង' : 'News', to: '/news' },
+                      { title: activeLocale === 'kh' ? 'អំពីកម្មវីធី' : 'About', to: '/about' },
+                    ]"
                     :key="link.to"
                     class="ma-1"
                     color="primary"

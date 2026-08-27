@@ -1,5 +1,4 @@
 <script lang="ts" setup>
-  import { ref, watch } from 'vue'
   import { useI18n } from 'vue-i18n'
   import { useRouter } from 'vue-router'
   import logo from '@/assets/mpwt-logo-sm.svg'
@@ -7,7 +6,7 @@
   import ThemeToggle from '@/components/button/ThemeToggle.vue'
   import { useAuthStore } from '@/stores/auth.ts'
 
-  const emit = defineEmits(['language-changed', 'theme-changed'])
+  const emit = defineEmits(['theme-changed'])
   const router = useRouter()
   const { t } = useI18n()
   const authStore = useAuthStore()
@@ -23,13 +22,6 @@
     { title: t('notify'), to: '/news' },
     { title: t('contact'), to: '/contact-us' },
   ])
-
-  const locale = ref<'en' | 'km'>((localStorage.getItem('locale') as 'en' | 'km') || 'en')
-
-  watch(locale, v => {
-    localStorage.setItem('locale', v)
-    emit('language-changed', v)
-  })
 
   function onNavigate (item: { title: string, to?: string }) {
     if (item.to) {
@@ -53,6 +45,7 @@
             variant="outlined"
           />
         </div>
+
         <router-link class="text-decoration-none text--primary" to="/">
           <v-img
             aspect-ratio="1/1"
@@ -74,13 +67,15 @@
         </div>
       </header>
     </v-container>
-<!--    <v-divider class="custom-divider" />-->
+    <!--    <v-divider class="custom-divider" />-->
     <hr>
+
     <v-container width="1200">
       <!-- Mobile: collapse into menu -->
-      <div class="d-sm-none d-flex gap-1">
+      <div class="d-sm-none d-flex align-center gap-1">
         <!-- Notification button for mobile -->
         <NotificationButton />
+        <LanguageSwitcher />
 
         <!-- Mobile menu button -->
         <v-menu open-on-click>
@@ -136,6 +131,7 @@
             {{ item.title }}
           </v-btn>
         </div>
+
         <v-btn
           v-if="!authStore.isAuthenticated"
           append-icon="material-symbols:login"

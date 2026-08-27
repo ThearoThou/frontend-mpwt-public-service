@@ -7,14 +7,20 @@
 import { Icon } from '@iconify/vue'
 // Composables
 import { h } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { createVuetify } from 'vuetify'
+import { createVueI18nAdapter } from 'vuetify/locale/adapters/vue-i18n'
+import i18n, { registerVuetifyLocaleSynchronizer } from './i18n'
 
 // Styles
 import '@mdi/font/css/materialdesignicons.css'
 import 'vuetify/styles'
 
 // https://vuetifyjs.com/en/introduction/why-vuetify/#feature-guides
-export default createVuetify({
+const vuetify = createVuetify({
+  locale: {
+    adapter: createVueI18nAdapter({ i18n, useI18n }),
+  },
   icons: {
     defaultSet: 'iconify',
     sets: {
@@ -57,3 +63,11 @@ export default createVuetify({
     },
   },
 })
+
+// Keep Vuetify's root locale in lockstep with the application's sole Vue I18n
+// locale. VDatePicker's built-in adapter resolves this key through date.locale.
+registerVuetifyLocaleSynchronizer(locale => {
+  vuetify.locale.current.value = locale
+})
+
+export default vuetify
