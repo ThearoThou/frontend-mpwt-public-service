@@ -18,7 +18,7 @@ export interface CitizenProfile {
   id: string
   userId: string
   nameKh: string
-  nameEn: string
+  nameEn: string | null
   nationalIdNumber: string | null
   address: string | null
   profileImageUrl: string | null
@@ -49,7 +49,7 @@ export interface RegisterInput {
   verificationIdentifier?: string
   password: string
   nameKh: string
-  nameEn: string
+  nameEn?: string | null
   nationalIdNumber?: string
   address?: string
 }
@@ -69,4 +69,9 @@ export interface RegistrationResponse {
   message: string
   verificationRequired: boolean
   destinationHint: string | null
+}
+
+export interface CitizenProfileUpdateInput {
+  nameKh?: string
+  nameEn?: string | null
 }

@@ -77,7 +77,7 @@
       const identifier = form.phone || form.email
       await inspectionAuthService.register({
         nameKh: form.nameKh,
-        nameEn: form.nameEn,
+        nameEn: form.nameEn || null,
         phone: form.phone || undefined,
         email: form.email || undefined,
         verificationIdentifier: identifier,
@@ -115,9 +115,7 @@
           </v-text-field>
         </v-col>
         <v-col cols="12">
-          <v-text-field v-model.trim="form.nameEn" class="inspection-required-field" maxlength="150" prepend-inner-icon="mdi-account-outline" required variant="outlined">
-            <template #label>{{ $t('inspection_name_en') }} <span class="inspection-required-mark">*</span></template>
-          </v-text-field>
+          <v-text-field v-model.trim="form.nameEn" :label="$t('inspection_name_en_optional')" maxlength="150" prepend-inner-icon="mdi-account-outline" variant="outlined" />
         </v-col>
         <v-col cols="12">
           <v-text-field v-model.trim="form.phone" autocomplete="tel" class="inspection-required-field" prepend-inner-icon="mdi-phone-outline" required variant="outlined">

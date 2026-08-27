@@ -1,4 +1,4 @@
-import type { ApiDataResponse, AuthSession, CurrentUser, LoginInput, PasswordResetConfirmInput, PasswordResetVerifyInput, RegisterInput, RegistrationResponse, VerifyAccountInput } from '../types/auth.types'
+import type { ApiDataResponse, AuthSession, CitizenProfile, CitizenProfileUpdateInput, CurrentUser, LoginInput, PasswordResetConfirmInput, PasswordResetVerifyInput, RegisterInput, RegistrationResponse, VerifyAccountInput } from '../types/auth.types'
 import { http, refreshInspectionAuthSession } from '@/services/http'
 
 export const inspectionAuthService = {
@@ -31,5 +31,8 @@ export const inspectionAuthService = {
   },
   async getCurrentUser () {
     return (await http.get<ApiDataResponse<CurrentUser>>('/users/me')).data.data
+  },
+  async updateCitizenProfile (input: CitizenProfileUpdateInput) {
+    return (await http.patch<ApiDataResponse<CitizenProfile>>('/users/me/citizen-profile', input)).data.data
   },
 }

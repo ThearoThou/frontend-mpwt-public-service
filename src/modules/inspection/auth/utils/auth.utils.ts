@@ -46,7 +46,7 @@ export function isKhmerName (value: string): boolean {
 
 export function getKhmerNameIssue (value: string): InspectionAuthValidationIssue | undefined {
   if (!value) {
-    return 'inspection_name_kh'
+    return 'inspection_name_kh_required'
   }
   if (value.length > INSPECTION_NAME_MAX_LENGTH) {
     return 'inspection_name_kh_maximum'
@@ -60,7 +60,7 @@ export function isEnglishName (value: string): boolean {
 
 export function getEnglishNameIssue (value: string): InspectionAuthValidationIssue | undefined {
   if (!value) {
-    return 'inspection_name_en'
+    return undefined
   }
   if (value.length > INSPECTION_NAME_MAX_LENGTH) {
     return 'inspection_name_en_maximum'

@@ -1,4 +1,4 @@
-import type { AuthSession, CurrentUser, LoginInput } from '../types/auth.types'
+import type { AuthSession, CitizenProfileUpdateInput, CurrentUser, LoginInput } from '../types/auth.types'
 import { clearInspectionAccessToken, setInspectionAccessToken, setInspectionAuthStateHandlers } from '@/services/http'
 import { inspectionAuthService } from '../services/auth.service'
 
@@ -26,6 +26,14 @@ export const useInspectionAuthStore = defineStore('inspection-auth', () => {
 
   async function login (input: LoginInput) {
     await applySession(await inspectionAuthService.login(input))
+  }
+
+  async function updateCitizenProfile (input: CitizenProfileUpdateInput) {
+    const profile = await inspectionAuthService.updateCitizenProfile(input)
+    if (currentUser.value !== null) {
+      currentUser.value = { ...currentUser.value, citizenProfile: profile }
+    }
+    return profile
   }
 
   function clearSession () {
@@ -84,5 +92,5 @@ export const useInspectionAuthStore = defineStore('inspection-auth', () => {
     }
   }
 
-  return { accessToken, applySession, clearPasswordResetVerification, clearSession, currentUser, hasRestoredSession, isAuthenticated, isCitizen, login, logout, passwordResetCode, passwordResetIdentifier, restoreSession, setPasswordResetVerification }
+  return { accessToken, applySession, clearPasswordResetVerification, clearSession, currentUser, hasRestoredSession, isAuthenticated, isCitizen, login, logout, passwordResetCode, passwordResetIdentifier, restoreSession, setPasswordResetVerification, updateCitizenProfile }
 })
