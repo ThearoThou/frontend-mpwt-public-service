@@ -5,9 +5,9 @@
   import { useRouter } from 'vue-router'
   import { inspectionApplicationService } from '../applications/services/application.service'
   import { inspectionVehicleService } from '../vehicles/services/vehicle.service'
-  import { inspectionExpiryState } from '../vehicles/utils/inspection-expiry-status'
   import { CAMBODIAN_CAPITAL_PROVINCES_KH, type Vehicle, type VehicleLookupQuery, type VehiclePlateCategory } from '../vehicles/types/vehicle.types'
-  import { findUnfinishedApplication, renewalEntryAction, unfinishedApplicationMessageKey } from './utils/renewal-entry-action'
+  import { inspectionExpiryState } from '../vehicles/utils/inspection-expiry-status'
+  import { findRenewalEntryApplication, findUnfinishedApplication, renewalEntryAction, unfinishedApplicationMessageKey } from './utils/renewal-entry-action'
 
   type ApiErrorResponse = { code?: string, message?: string }
   type TemporaryFeedbackKind = 'validation' | 'lookup-api' | 'not-found' | 'draft-api'
@@ -35,7 +35,7 @@
   const matchedVehicleRenewalIsNotYetAvailable = computed(() => matchedVehicle.value !== null && inspectionExpiryState(matchedVehicle.value.inspectionExpiryDate) === 'valid')
   const matchedApplication = computed(() => matchedVehicle.value === null
     ? undefined
-    : findUnfinishedApplication(applications.value, matchedVehicle.value.id))
+    : findRenewalEntryApplication(applications.value, matchedVehicle.value.id))
   const matchedVehicleRenewalAction = computed(() => renewalEntryAction(matchedApplication.value))
   const plateCategoryItems = computed(() => [
     { title: t('inspection_plate_category_province'), value: 'PROVINCE' },
@@ -193,6 +193,21 @@
     }
   }
 
+  async function renewAgain () {
+    if (matchedApplication.value?.status !== 'EXPIRED' || creatingDraft.value) return
+
+    creatingDraft.value = true
+    clearTemporaryFeedback()
+    try {
+      const application = await inspectionApplicationService.renewAgain(matchedApplication.value.id)
+      await router.push({ path: '/services/inspection/renewal/documents', query: { applicationId: application.id } })
+    } catch (error) {
+      showTemporaryFeedback('draft-api', getErrorMessage(error, 'inspection_draft_creation_error'), 'error')
+    } finally {
+      creatingDraft.value = false
+    }
+  }
+
   function resetSearch () {
     chassisNumber.value = ''
     plateCategory.value = 'PROVINCE'
@@ -233,6 +248,11 @@
 
     if (action.kind === 'start') {
       await startRenewal()
+      return
+    }
+
+    if (action.kind === 'renew') {
+      await renewAgain()
       return
     }
 

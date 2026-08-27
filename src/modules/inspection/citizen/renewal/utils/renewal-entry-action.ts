@@ -2,7 +2,7 @@ import type { RenewalApplication } from '../../applications/types/application.ty
 import { inspectionExpiryState } from '../../vehicles/utils/inspection-expiry-status'
 
 export type RenewalEntryAction = {
-  kind: 'start' | 'resume' | 'view'
+  kind: 'start' | 'renew' | 'resume' | 'view'
   icon: string
   labelKey: string
 }
@@ -40,6 +40,14 @@ export function findUnfinishedApplication (
   )
 }
 
+export function findRenewalEntryApplication (
+  applications: RenewalApplication[],
+  vehicleId: string,
+): RenewalApplication | undefined {
+  return findUnfinishedApplication(applications, vehicleId)
+    ?? applications.find(application => application.vehicleId === vehicleId && application.status === 'EXPIRED')
+}
+
 export function renewalEntryAction (
   application: RenewalApplication | undefined,
 ): RenewalEntryAction {
@@ -56,6 +64,14 @@ export function renewalEntryAction (
       kind: 'resume',
       icon: 'mdi-play-circle-outline',
       labelKey: 'inspection_renewal_continue',
+    }
+  }
+
+  if (application.status === 'EXPIRED') {
+    return {
+      kind: 'renew',
+      icon: 'mdi-refresh',
+      labelKey: 'inspection_renewal_renew_again',
     }
   }
 
