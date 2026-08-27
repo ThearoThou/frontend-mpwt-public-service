@@ -1,10 +1,13 @@
 <script setup lang="ts">
+  import type { RenewalApplication } from '../applications/types/application.types'
   import { isAxiosError } from 'axios'
   import { useI18n } from 'vue-i18n'
   import { useRouter } from 'vue-router'
   import { inspectionApplicationService } from '../applications/services/application.service'
   import { inspectionVehicleService } from '../vehicles/services/vehicle.service'
+  import { inspectionExpiryState } from '../vehicles/utils/inspection-expiry-status'
   import { CAMBODIAN_CAPITAL_PROVINCES_KH, type Vehicle, type VehicleLookupQuery, type VehiclePlateCategory } from '../vehicles/types/vehicle.types'
+  import { findUnfinishedApplication, renewalEntryAction, unfinishedApplicationMessageKey } from './utils/renewal-entry-action'
 
   type ApiErrorResponse = { code?: string, message?: string }
   type TemporaryFeedbackKind = 'validation' | 'lookup-api' | 'not-found' | 'draft-api'
@@ -23,12 +26,17 @@
   const firstRegistrationDate = ref('')
   const firstRegistrationDateInput = ref('')
   const matchedVehicle = ref<Vehicle | null>(null)
+  const applications = ref<RenewalApplication[]>([])
   const searching = ref(false)
   const creatingDraft = ref(false)
   const temporaryFeedback = ref<TemporaryFeedback | null>(null)
 
   const temporaryFeedbackMessage = computed(() => temporaryFeedback.value === null ? '' : t(temporaryFeedback.value.key))
-  const matchedVehicleInspectionIsValid = computed(() => matchedVehicle.value !== null && isInspectionStillValid(matchedVehicle.value))
+  const matchedVehicleRenewalIsNotYetAvailable = computed(() => matchedVehicle.value !== null && inspectionExpiryState(matchedVehicle.value.inspectionExpiryDate) === 'valid')
+  const matchedApplication = computed(() => matchedVehicle.value === null
+    ? undefined
+    : findUnfinishedApplication(applications.value, matchedVehicle.value.id))
+  const matchedVehicleRenewalAction = computed(() => renewalEntryAction(matchedApplication.value))
   const plateCategoryItems = computed(() => [
     { title: t('inspection_plate_category_province'), value: 'PROVINCE' },
     { title: t('inspection_plate_category_personalized'), value: 'PERSONALIZED_CAMBODIA' },
@@ -157,6 +165,7 @@
       }
 
       matchedVehicle.value = response.data[0]
+      applications.value = await inspectionApplicationService.listCitizenApplications()
     } catch (error) {
       showTemporaryFeedback('lookup-api', getErrorMessage(error, 'inspection_vehicle_lookup_error'), 'error')
     } finally {
@@ -165,7 +174,7 @@
   }
 
   async function startRenewal () {
-    if (matchedVehicle.value === null || matchedVehicleInspectionIsValid.value || creatingDraft.value) return
+    if (matchedVehicle.value === null || matchedVehicleRenewalIsNotYetAvailable.value || creatingDraft.value) return
 
     creatingDraft.value = true
     clearTemporaryFeedback()
@@ -174,7 +183,7 @@
       await router.push({ path: '/services/inspection/renewal/documents', query: { applicationId: application.id } })
     } catch (error) {
       if (isUnfinishedApplicationError(error)) {
-        await resumeExistingDraft(matchedVehicle.value.id)
+        await handleUnfinishedApplication(matchedVehicle.value.id)
         return
       }
 
@@ -206,11 +215,11 @@
       return 'inspection_vehicle_classification_incomplete'
     }
 
-    return fallback
-  }
+    if (error.response?.data?.code === 'VEHICLE_NOT_YET_ELIGIBLE_FOR_RENEWAL') {
+      return 'inspection_renewal_not_yet_eligible'
+    }
 
-  function isInspectionStillValid (vehicle: Vehicle): boolean {
-    return vehicle.inspectionExpiryDate > new Date().toISOString().slice(0, 10)
+    return fallback
   }
 
   function isUnfinishedApplicationError (error: unknown): boolean {
@@ -218,15 +227,35 @@
       && error.response?.data?.code === 'UNFINISHED_APPLICATION_ALREADY_EXISTS'
   }
 
-  async function resumeExistingDraft (vehicleId: string) {
-    try {
-      const applications = await inspectionApplicationService.listCitizenApplications()
-      const draft = applications.find(application => application.vehicleId === vehicleId && application.status === 'DRAFT')
+  async function handleRenewalAction () {
+    if (matchedVehicle.value === null) return
+    const action = matchedVehicleRenewalAction.value
 
-      if (draft !== undefined) {
-        await router.push({ path: '/services/inspection/renewal/documents', query: { applicationId: draft.id } })
+    if (action.kind === 'start') {
+      await startRenewal()
+      return
+    }
+
+    if (matchedApplication.value === undefined) return
+
+    await router.push(action.kind === 'resume'
+      ? { path: '/services/inspection/renewal/documents', query: { applicationId: matchedApplication.value.id } }
+      : { path: `/services/inspection/applications/${matchedApplication.value.id}` })
+  }
+
+  async function handleUnfinishedApplication (vehicleId: string) {
+    try {
+      const citizenApplications = await inspectionApplicationService.listCitizenApplications()
+      applications.value = citizenApplications
+      const unfinishedApplication = findUnfinishedApplication(citizenApplications, vehicleId)
+
+      if (unfinishedApplication?.status === 'DRAFT') {
+        await router.push({ path: '/services/inspection/renewal/documents', query: { applicationId: unfinishedApplication.id } })
         return
       }
+
+      showTemporaryFeedback('draft-api', unfinishedApplicationMessageKey(unfinishedApplication), 'warning')
+      return
     } catch {
       // Fall through to the localized error below.
     }
@@ -268,6 +297,19 @@
             />
           </v-col>
 
+          <v-col v-if="plateCategory === 'PROVINCE'" cols="12" md="6">
+            <label class="renewal-field-label" for="renewal-plate-province">{{ $t('inspection_plate_province') }} <span>*</span></label>
+
+            <v-select
+              id="renewal-plate-province"
+              v-model="plateProvince"
+              density="comfortable"
+              hide-details
+              :items="provinceItems"
+              variant="outlined"
+            />
+          </v-col>
+
           <v-col cols="12" md="6">
             <label class="renewal-field-label" for="renewal-plate-number">{{ $t('inspection_plate_number') }} <span>*</span></label>
 
@@ -279,19 +321,6 @@
               maxlength="8"
               placeholder="e.g. 2AY-1234"
               prepend-inner-icon="mdi-car-info"
-              variant="outlined"
-            />
-          </v-col>
-
-          <v-col v-if="plateCategory === 'PROVINCE'" cols="12" md="6">
-            <label class="renewal-field-label" for="renewal-plate-province">{{ $t('inspection_plate_province') }} <span>*</span></label>
-
-            <v-select
-              id="renewal-plate-province"
-              v-model="plateProvince"
-              density="comfortable"
-              hide-details
-              :items="provinceItems"
               variant="outlined"
             />
           </v-col>
@@ -391,12 +420,18 @@
       </div>
 
       <div class="d-flex justify-end mt-5">
-        <v-alert v-if="matchedVehicleInspectionIsValid" density="compact" type="success" variant="tonal">
-          {{ $t('inspection_vehicle_inspection_valid_until', { date: matchedVehicle.inspectionExpiryDate }) }}
+        <v-alert v-if="matchedVehicleRenewalIsNotYetAvailable && !matchedApplication" density="compact" type="info" variant="tonal">
+          {{ $t('inspection_renewal_not_yet_eligible') }}
         </v-alert>
 
-        <v-btn v-else color="primary" :loading="creatingDraft" @click="startRenewal">
-          {{ $t('inspection_continue_renewal') }}
+        <v-btn
+          v-else
+          color="primary"
+          :loading="creatingDraft"
+          :prepend-icon="matchedVehicleRenewalAction.icon"
+          @click="handleRenewalAction"
+        >
+          {{ $t(matchedVehicleRenewalAction.labelKey) }}
         </v-btn>
       </div>
     </v-card>

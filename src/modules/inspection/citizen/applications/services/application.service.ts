@@ -1,4 +1,4 @@
-import type { ApiDataResponse, ApiPaginatedResponse, ApplicationDocument, ApplicationDocumentType, CitizenFeeEstimate, RenewalApplication } from '../types/application.types'
+import type { ApiDataResponse, ApiPaginatedResponse, ApplicationDocument, ApplicationDocumentType, CitizenFeeEstimate, CitizenPaymentInvoice, CitizenPaymentRecord, RenewalApplication } from '../types/application.types'
 import { http } from '@/services/http'
 
 export const inspectionApplicationService = {
@@ -16,6 +16,12 @@ export const inspectionApplicationService = {
   },
   async getFeeEstimate (applicationId: string): Promise<CitizenFeeEstimate> {
     return (await http.get<ApiDataResponse<CitizenFeeEstimate>>(`/applications/${applicationId}/fee-estimate`)).data.data
+  },
+  async initializePayment (applicationId: string): Promise<CitizenPaymentInvoice> {
+    return (await http.post<ApiDataResponse<CitizenPaymentInvoice>>(`/applications/${applicationId}/payment/initialize`)).data.data
+  },
+  async getPayment (applicationId: string): Promise<CitizenPaymentRecord> {
+    return (await http.get<ApiDataResponse<CitizenPaymentRecord>>(`/payments/applications/${applicationId}`)).data.data
   },
   async listDocuments (applicationId: string): Promise<ApplicationDocument[]> {
     return (await http.get<ApiDataResponse<ApplicationDocument[]>>(`/applications/${applicationId}/documents`)).data.data

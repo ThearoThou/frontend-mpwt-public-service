@@ -6,6 +6,7 @@
   import { useRoute, useRouter } from 'vue-router'
   import { inspectionAuthService } from '../../auth/services/auth.service'
   import { inspectionApplicationService } from '../applications/services/application.service'
+  import { inspectionExpiryState } from '../vehicles/utils/inspection-expiry-status'
   import { inspectionVehicleService } from '../vehicles/services/vehicle.service'
   import RenewalDocumentUploadCard from './components/RenewalDocumentUploadCard.vue'
 
@@ -40,15 +41,15 @@
 
   const currentDocuments = computed(() => documents.value.filter(document => document.isCurrent))
   const canContinue = computed(() => documentDefinitions.every(item => currentDocument(item.type) !== undefined))
+  const hasLateFee = computed(() => Number(feeEstimate.value?.lateFee ?? 0) > 0)
+  const lateFeeDailyRate = computed<number | null>(() => {
+    if (vehicle.value?.vehicleClass === null || vehicle.value === null) return null
+    return vehicle.value.vehicleClass === 'HEAVY' ? 2000 : 500
+  })
   const inspectionState = computed<'expired' | 'expiring' | 'valid'>(() => {
-    if ((feeEstimate.value?.lateDays ?? 0) > 0) return 'expired'
     const inspectionExpiryDate = vehicle.value?.inspectionExpiryDate
     if (inspectionExpiryDate === undefined) return 'valid'
-
-    const daysUntilExpiry = Math.ceil((new Date(inspectionExpiryDate).getTime() - Date.now()) / 86_400_000)
-    if (daysUntilExpiry < 0) return 'expired'
-    if (daysUntilExpiry <= 30) return 'expiring'
-    return 'valid'
+    return inspectionExpiryState(inspectionExpiryDate)
   })
   const inspectionStateTextClass = computed(() => ({
     expired: 'text-error',
@@ -170,7 +171,7 @@
       const draft = await inspectionApplicationService.getById(applicationId.value)
 
       if (draft.status !== 'DRAFT') {
-        errorMessage.value = t('inspection_documents_not_editable')
+        await router.replace({ path: `/services/inspection/applications/${draft.id}` })
         return
       }
 
@@ -353,12 +354,13 @@
               </div>
               <div class="renewal-info-field">
                 <span>{{ $t('inspection_documents_overdue_days') }}</span>
-                <strong :class="feeEstimate?.lateDays ? 'text-error' : ''">{{ feeEstimate?.lateDays ?? '—' }}</strong>
+                <strong :class="hasLateFee ? 'text-error' : ''">{{ feeEstimate?.lateDays ?? '—' }}</strong>
               </div>
               <div class="renewal-info-field">
                 <span>{{ $t('inspection_documents_late_fee') }}</span>
                 <strong :class="feeEstimate?.lateFee !== '0.00' ? 'text-error' : ''">
                   {{ feeEstimate ? `${feeEstimate.lateFee} ${feeEstimate.currency}` : '—' }}
+                  <small v-if="hasLateFee && lateFeeDailyRate !== null">{{ $t('inspection_documents_late_fee_daily_rate', { rate: lateFeeDailyRate }) }}</small>
                 </strong>
               </div>
             </div>
@@ -557,6 +559,12 @@
     color: #303746;
     font-size: 0.95rem;
     overflow-wrap: anywhere;
+  }
+
+  .renewal-info-field strong small {
+    font-size: 0.78rem;
+    font-weight: 500;
+    white-space: nowrap;
   }
 
   .renewal-progress-card {

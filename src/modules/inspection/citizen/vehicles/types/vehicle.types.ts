@@ -1,6 +1,10 @@
 export type VehiclePlateCategory = 'PROVINCE' | 'PERSONALIZED_CAMBODIA'
 
 export interface VehicleLookupQuery {
+  page?: number
+  limit?: number
+  sortOrder?: 'asc' | 'desc'
+  search?: string
   registrationNumber?: string
   chassisNumber?: string
   plateNumber?: string

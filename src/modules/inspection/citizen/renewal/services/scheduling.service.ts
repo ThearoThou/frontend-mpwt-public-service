@@ -1,4 +1,7 @@
-import type { ApiDataResponse, RenewalApplication } from '../../applications/types/application.types'
+import type {
+  ApiDataResponse,
+  RenewalApplication,
+} from '../../applications/types/application.types'
 import { http } from '@/services/http'
 
 export interface InspectionStation {
@@ -11,25 +14,33 @@ export interface InspectionStation {
   phone: string | null
 }
 
-export interface AvailableInspectionDate {
-  stationId: string
-  capacityDate: string
+export interface InspectionServiceClosure {
+  closureDate: string
+  reasonKh: string
+  reasonEn: string
 }
 
 export const inspectionSchedulingService = {
   async listStations (): Promise<InspectionStation[]> {
-    return (await http.get<ApiDataResponse<InspectionStation[]>>('/stations')).data.data
+    return (await http.get<ApiDataResponse<InspectionStation[]>>('/stations'))
+      .data
+      .data
   },
-  async listAvailableDates (stationId: string): Promise<AvailableInspectionDate[]> {
-    return (await http.get<ApiDataResponse<AvailableInspectionDate[]>>(`/stations/${stationId}/available-dates`)).data.data
+  async listClosures (from: string, to: string): Promise<InspectionServiceClosure[]> {
+    return (await http.get<ApiDataResponse<InspectionServiceClosure[]>>('/inspection-calendar/closures', {
+      params: { from, to },
+    })).data.data
   },
-  async listPreferredDates (stationId: string): Promise<AvailableInspectionDate[]> {
-    return (await http.get<ApiDataResponse<AvailableInspectionDate[]>>(`/stations/${stationId}/preferred-dates`)).data.data
-  },
-  async savePreference (applicationId: string, stationId: string, capacityDate: string): Promise<RenewalApplication> {
-    return (await http.post<ApiDataResponse<RenewalApplication>>(
-      `/applications/${applicationId}/scheduling-preference`,
-      { stationId, capacityDate },
-    )).data.data
+  async savePreference (
+    applicationId: string,
+    preferredInspectionDate: string,
+    preferredInspectionStationId: string | null,
+  ): Promise<RenewalApplication> {
+    return (
+      await http.post<ApiDataResponse<RenewalApplication>>(
+        `/applications/${applicationId}/scheduling-preference`,
+        { preferredInspectionDate, preferredInspectionStationId },
+      )
+    ).data.data
   },
 }
