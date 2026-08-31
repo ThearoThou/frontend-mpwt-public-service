@@ -8,6 +8,9 @@ export const inspectionApplicationService = {
   async renewAgain (expiredApplicationId: string): Promise<RenewalApplication> {
     return (await http.post<ApiDataResponse<RenewalApplication>>(`/applications/${expiredApplicationId}/renew-again`)).data.data
   },
+  async applyAgain (failedApplicationId: string): Promise<RenewalApplication> {
+    return (await http.post<ApiDataResponse<RenewalApplication>>(`/applications/${failedApplicationId}/apply-again`)).data.data
+  },
   async submitDraft (applicationId: string): Promise<RenewalApplication> {
     return (await http.post<ApiDataResponse<RenewalApplication>>(`/applications/${applicationId}/submit`)).data.data
   },

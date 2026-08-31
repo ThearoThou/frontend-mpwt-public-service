@@ -208,6 +208,21 @@
     }
   }
 
+  async function applyAgain () {
+    if (matchedApplication.value?.status !== 'INSPECTION_FAILED' || creatingDraft.value) return
+
+    creatingDraft.value = true
+    clearTemporaryFeedback()
+    try {
+      const application = await inspectionApplicationService.applyAgain(matchedApplication.value.id)
+      await router.push({ path: '/services/inspection/renewal/documents', query: { applicationId: application.id } })
+    } catch (error) {
+      showTemporaryFeedback('draft-api', getErrorMessage(error, 'inspection_draft_creation_error'), 'error')
+    } finally {
+      creatingDraft.value = false
+    }
+  }
+
   function resetSearch () {
     chassisNumber.value = ''
     plateCategory.value = 'PROVINCE'
@@ -253,6 +268,11 @@
 
     if (action.kind === 'renew') {
       await renewAgain()
+      return
+    }
+
+    if (action.kind === 'apply-again') {
+      await applyAgain()
       return
     }
 
@@ -440,6 +460,16 @@
       </div>
 
       <div class="d-flex justify-end mt-5">
+        <v-alert
+          v-if="matchedApplication?.status === 'INSPECTION_FAILED'"
+          class="mr-auto"
+          density="compact"
+          type="warning"
+          variant="tonal"
+        >
+          {{ $t('inspection_renewal_inspection_failed_message') }}
+        </v-alert>
+
         <v-alert v-if="matchedVehicleRenewalIsNotYetAvailable && !matchedApplication" density="compact" type="info" variant="tonal">
           {{ $t('inspection_renewal_not_yet_eligible') }}
         </v-alert>

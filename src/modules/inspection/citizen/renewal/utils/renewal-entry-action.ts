@@ -2,7 +2,7 @@ import type { RenewalApplication } from '../../applications/types/application.ty
 import { inspectionExpiryState } from '../../vehicles/utils/inspection-expiry-status'
 
 export type RenewalEntryAction = {
-  kind: 'start' | 'renew' | 'resume' | 'view'
+  kind: 'start' | 'renew' | 'apply-again' | 'resume' | 'view'
   icon: string
   labelKey: string
 }
@@ -45,6 +45,7 @@ export function findRenewalEntryApplication (
   vehicleId: string,
 ): RenewalApplication | undefined {
   return findUnfinishedApplication(applications, vehicleId)
+    ?? applications.find(application => application.vehicleId === vehicleId && application.status === 'INSPECTION_FAILED')
     ?? applications.find(application => application.vehicleId === vehicleId && application.status === 'EXPIRED')
 }
 
@@ -72,6 +73,14 @@ export function renewalEntryAction (
       kind: 'renew',
       icon: 'mdi-refresh',
       labelKey: 'inspection_renewal_renew_again',
+    }
+  }
+
+  if (application.status === 'INSPECTION_FAILED') {
+    return {
+      kind: 'apply-again',
+      icon: 'mdi-refresh',
+      labelKey: 'inspection_renewal_apply_again',
     }
   }
 
@@ -126,6 +135,11 @@ export function renewalApplicationStatusBadge (
       color: 'warning',
       icon: 'mdi-file-alert-outline',
       labelKey: 'inspection_renewal_action_required',
+    },
+    INSPECTION_FAILED: {
+      color: 'warning',
+      icon: 'mdi-car-alert',
+      labelKey: 'inspection_renewal_status_inspection_failed',
     },
     EXPIRED: {
       color: 'warning',
