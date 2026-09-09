@@ -4,6 +4,9 @@
   import { isAxiosError } from 'axios'
   import { useI18n } from 'vue-i18n'
   import { useRouter } from 'vue-router'
+  import heroPickup from '@/assets/inspection/vehicle-inspection-hero-pickup.png'
+  import heroSuv from '@/assets/inspection/vehicle-inspection-hero-suv.png'
+  import heroDefault from '@/assets/inspection/vehicle-inspection-hero.png'
   import { useInspectionAuthStore } from '@/modules/inspection/auth/stores/auth.store'
   import { inspectionApplicationService } from '@/modules/inspection/citizen/applications/services/application.service'
   import { findUnfinishedApplication, renewalApplicationStatusBadge, renewalEntryAction, renewalReminderBadge, unfinishedApplicationMessageKey } from '@/modules/inspection/citizen/renewal/utils/renewal-entry-action'
@@ -11,11 +14,12 @@
   import { inspectionExpiryState, type InspectionExpiryState } from '@/modules/inspection/citizen/vehicles/utils/inspection-expiry-status'
   import { getVehicleTypeIcon } from '@/modules/inspection/citizen/vehicles/utils/vehicle-type-icon'
   import { formatVehicleType } from '@/modules/inspection/citizen/vehicles/utils/vehicle-type-label'
-  import heroDefault from '@/assets/inspection/vehicle-inspection-hero.png'
-  import heroPickup from '@/assets/inspection/vehicle-inspection-hero-pickup.png'
-  import heroSuv from '@/assets/inspection/vehicle-inspection-hero-suv.png'
 
   type ApiErrorResponse = { code?: string }
+  type IdleCallbackWindow = Window & {
+    requestIdleCallback?: (callback: () => void, options?: { timeout?: number }) => number
+    cancelIdleCallback?: (handle: number) => void
+  }
 
   const { locale, t } = useI18n()
   const router = useRouter()
@@ -25,17 +29,15 @@
   const applications = ref<RenewalApplication[]>([])
   const loadingVehicles = ref(false)
   const vehicleLoadError = ref(false)
-  const creatingDraft = ref(false)
+  const renewingVehicleIds = ref<Set<string>>(new Set())
   const renewalError = ref<string | null>(null)
   const heroBackgrounds = [heroDefault, heroSuv, heroPickup]
   const activeHeroBackground = ref(0)
   const currentHeroBackground = computed(() => heroBackgrounds[activeHeroBackground.value])
   let heroRotationTimer: ReturnType<typeof setInterval> | undefined
-  const visibleVehicles = computed(() => [
-    ...vehicles.value.filter(vehicle => getInspectionState(vehicle) === 'expiring'),
-    ...vehicles.value.filter(vehicle => getInspectionState(vehicle) === 'expired'),
-    ...vehicles.value.filter(vehicle => getInspectionState(vehicle) === 'valid'),
-  ].slice(0, 3))
+  let routePrefetchTimer: ReturnType<typeof setTimeout> | undefined
+  let routePrefetchIdleCallback: number | undefined
+  const visibleVehicles = computed(() => vehicles.value.slice(0, 3))
 
   onMounted(async () => {
     startHeroRotation()
@@ -45,11 +47,34 @@
     if (!authStore.isCitizen) return
 
     await loadVehicles()
+    scheduleCitizenRoutePrefetch()
   })
 
   onBeforeUnmount(() => {
     if (heroRotationTimer) clearInterval(heroRotationTimer)
+    if (routePrefetchTimer) clearTimeout(routePrefetchTimer)
+    if (routePrefetchIdleCallback !== undefined) (window as IdleCallbackWindow).cancelIdleCallback?.(routePrefetchIdleCallback)
   })
+
+  function scheduleCitizenRoutePrefetch () {
+    const idleWindow = window as IdleCallbackWindow
+    const prefetch = () => {
+      routePrefetchIdleCallback = undefined
+      routePrefetchTimer = undefined
+
+      void Promise.all([
+        import('@/pages/services/inspection/vehicles/index.vue'),
+        import('@/pages/services/inspection/renewal/documents.vue'),
+      ]).catch(() => undefined)
+    }
+
+    if (idleWindow.requestIdleCallback !== undefined) {
+      routePrefetchIdleCallback = idleWindow.requestIdleCallback(prefetch, { timeout: 3000 })
+      return
+    }
+
+    routePrefetchTimer = window.setTimeout(prefetch, 0)
+  }
 
   function startHeroRotation () {
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
@@ -64,11 +89,11 @@
     vehicleLoadError.value = false
     try {
       const [vehicleResponse, citizenApplications] = await Promise.all([
-        inspectionVehicleService.lookup({}),
+        inspectionVehicleService.lookup({ sortBy: 'inspectionExpiryDate', sortOrder: 'asc' }),
         inspectionApplicationService.listCitizenApplications(),
       ])
       vehicles.value = vehicleResponse.data
-      applications.value = citizenApplications
+      applications.value = citizenApplications.data
     } catch {
       vehicleLoadError.value = true
     } finally {
@@ -76,7 +101,9 @@
     }
   }
 
-  function getInspectionState (vehicle: Vehicle): InspectionExpiryState { return inspectionExpiryState(vehicle.inspectionExpiryDate) }
+  function getInspectionState (vehicle: Vehicle): InspectionExpiryState {
+    return inspectionExpiryState(vehicle.inspectionExpiryDate)
+  }
 
   function getInspectionStateKey (vehicle: Vehicle) {
     return `inspection_dashboard_${getInspectionState(vehicle)}`
@@ -137,10 +164,23 @@
       : { path: `/services/inspection/applications/${application.id}` })
   }
 
-  async function continueRenewal (vehicle: Vehicle) {
-    if (creatingDraft.value) return
+  function isRenewingVehicle (vehicleId: string): boolean {
+    return renewingVehicleIds.value.has(vehicleId)
+  }
 
-    creatingDraft.value = true
+  function setVehicleRenewing (vehicleId: string, renewing: boolean) {
+    const renewingIds = new Set(renewingVehicleIds.value)
+
+    if (renewing) renewingIds.add(vehicleId)
+    else renewingIds.delete(vehicleId)
+
+    renewingVehicleIds.value = renewingIds
+  }
+
+  async function continueRenewal (vehicle: Vehicle) {
+    if (isRenewingVehicle(vehicle.id)) return
+
+    setVehicleRenewing(vehicle.id, true)
     renewalError.value = null
     try {
       const application = await inspectionApplicationService.createDraft(vehicle.id)
@@ -153,7 +193,7 @@
 
       renewalError.value = getRenewalErrorMessage(error)
     } finally {
-      creatingDraft.value = false
+      setVehicleRenewing(vehicle.id, false)
     }
   }
 
@@ -179,8 +219,8 @@
   async function handleUnfinishedApplication (vehicleId: string) {
     try {
       const citizenApplications = await inspectionApplicationService.listCitizenApplications()
-      applications.value = citizenApplications
-      const unfinishedApplication = findUnfinishedApplication(citizenApplications, vehicleId)
+      applications.value = citizenApplications.data
+      const unfinishedApplication = findUnfinishedApplication(citizenApplications.data, vehicleId)
 
       if (unfinishedApplication?.status === 'DRAFT') {
         await router.push({ path: '/services/inspection/renewal/documents', query: { applicationId: unfinishedApplication.id } })
@@ -198,9 +238,9 @@
 </script>
 
 <template>
-  <section class="dashboard-view">
+  <section class="citizen-auth-type-scale dashboard-view">
     <v-sheet class="dashboard-hero" rounded="xl">
-      <Transition name="dashboard-hero-fade" mode="out-in">
+      <Transition mode="out-in" name="dashboard-hero-fade">
         <div
           :key="activeHeroBackground"
           aria-hidden="true"
@@ -261,8 +301,15 @@
       </v-card>
 
       <div class="d-flex flex-wrap align-center justify-space-between ga-3 mt-6 mb-3">
-        <h2 class="text-h6 font-weight-bold">{{ $t('inspection_dashboard_vehicle_overview') }}</h2>
-        <v-btn append-icon="mdi-chevron-right" color="primary" to="/services/inspection/vehicles" variant="text">{{ $t('inspection_dashboard_view_all') }}</v-btn>
+        <h2 class="dashboard-vehicles-heading text-h6">{{ $t('inspection_dashboard_vehicle_overview') }}</h2>
+
+        <v-btn
+          append-icon="mdi-chevron-right"
+          class="dashboard-view-all"
+          color="primary"
+          to="/services/inspection/vehicles"
+          variant="text"
+        >{{ $t('inspection_dashboard_view_all') }}</v-btn>
       </div>
 
       <div v-if="loadingVehicles" class="py-10 text-center"><v-progress-circular color="primary" indeterminate /></div>
@@ -277,7 +324,7 @@
 
               <div class="dashboard-vehicle-statuses">
                 <div class="dashboard-inspection-status-row">
-                  <v-chip :color="getInspectionStateColor(vehicle)" :prepend-icon="getInspectionStateIcon(vehicle)" variant="tonal">
+                  <v-chip :class="['dashboard-inspection-status', `dashboard-inspection-status--${getInspectionState(vehicle)}`]" :color="getInspectionStateColor(vehicle)" :prepend-icon="getInspectionStateIcon(vehicle)" variant="tonal">
                     {{ $t(getInspectionStateKey(vehicle)) }}
                   </v-chip>
                 </div>
@@ -285,6 +332,7 @@
                 <div class="dashboard-renewal-status-slot">
                   <v-chip
                     v-if="vehicleRenewalStatus(vehicle)"
+                    :class="['dashboard-renewal-status', `dashboard-renewal-status--${vehicleRenewalStatus(vehicle)?.color}`]"
                     :color="vehicleRenewalStatus(vehicle)?.color"
                     :prepend-icon="vehicleRenewalStatus(vehicle)?.icon"
                     size="small"
@@ -298,8 +346,8 @@
 
             <div class="mt-4">
               <h3 class="dashboard-vehicle-plate mb-1"><span>{{ plateTypeLabel(vehicle) }}</span>{{ vehicle.plateNumber }}</h3>
-              <p class="text-subtitle-1 text-primary font-weight-bold mb-2">{{ formatVehicleModel(vehicle) }}</p>
-              <p class="text-body-2 text-medium-emphasis mb-4">{{ formatVehicleType(vehicle.vehicleType, t) }}</p>
+              <p class="dashboard-vehicle-model text-primary mb-2">{{ formatVehicleModel(vehicle) }}</p>
+              <p class="dashboard-vehicle-type text-medium-emphasis mb-4">{{ formatVehicleType(vehicle.vehicleType, t) }}</p>
 
               <v-sheet class="inspection-expiry d-flex align-center ga-2 px-3 py-3" :class="`inspection-expiry--${getInspectionState(vehicle)}`" rounded="lg">
                 <v-icon icon="mdi-calendar-month-outline" />
@@ -308,13 +356,19 @@
             </div>
 
             <div class="dashboard-vehicle-actions mt-auto pt-4">
-              <v-btn class="dashboard-vehicle-actions__details" prepend-icon="mdi-eye-outline" :to="`/services/inspection/vehicles/${vehicle.id}`" variant="outlined">{{ $t('inspection_dashboard_view_vehicle') }}</v-btn>
+              <v-btn
+                class="dashboard-vehicle-actions__details"
+                :class="{ 'dashboard-vehicle-actions__details--only': !unfinishedApplication(vehicle) && getInspectionState(vehicle) === 'valid' }"
+                prepend-icon="mdi-eye-outline"
+                :to="`/services/inspection/vehicles/${vehicle.id}`"
+                variant="outlined"
+              >{{ $t('inspection_dashboard_view_vehicle') }}</v-btn>
 
               <v-btn
                 v-if="unfinishedApplication(vehicle) || getInspectionState(vehicle) !== 'valid'"
                 class="dashboard-vehicle-actions__renew"
                 color="primary"
-                :loading="creatingDraft"
+                :loading="isRenewingVehicle(vehicle.id)"
                 :prepend-icon="vehicleRenewalAction(vehicle).icon"
                 @click="handleRenewalAction(vehicle)"
               >
@@ -352,26 +406,46 @@
   .dashboard-hero-fade-enter-active, .dashboard-hero-fade-leave-active { transition: opacity .7s ease; }
   .dashboard-hero-fade-enter-from, .dashboard-hero-fade-leave-to { opacity: 0; }
   .dashboard-hero__content { align-self: center; max-width: 720px; position: relative; z-index: 1; }
-  .dashboard-hero__eyebrow { color: #d7ddfb; font-size: 1rem; letter-spacing: .08em; line-height: 1.35; }
-  .dashboard-hero-title { font-size: clamp(1.85rem, 2.6vw, 2.7rem); font-weight: 800; letter-spacing: -.01em; line-height: 1.2; max-width: 700px; }
-  .dashboard-hero-copy { color: #d1d8f5; font-size: clamp(.95rem, 1.15vw, 1.07rem); line-height: 1.6; max-width: 660px; }
-  .dashboard-hero__action { color: #1f2d68 !important; font-weight: 800; letter-spacing: 0; min-height: 44px; padding-inline: 22px; }
+  .dashboard-hero__eyebrow { color: #d7ddfb; font-size: .94rem !important; font-weight: 400 !important; letter-spacing: .02em; line-height: 1.5; }
+  .dashboard-hero-title { font-family: 'Moul', 'Siemreap', sans-serif !important; font-size: clamp(1.65rem, 2.2vw, 2.25rem); font-weight: 400 !important; letter-spacing: -.01em; line-height: 1.2; max-width: 700px; }
+  .dashboard-hero-copy { color: #d1d8f5; font-size: .94rem; font-weight: 400 !important; line-height: 1.6; max-width: 660px; }
+  .dashboard-view :deep(.dashboard-hero__action.v-btn) { color: #1f2d68 !important; font-size: .9rem !important; font-weight: 400 !important; letter-spacing: 0; min-height: 48px; padding-inline: 26px; }
+  .dashboard-view .dashboard-hero :deep(.dashboard-hero__action.v-btn .v-btn__content) { font-size: .9rem !important; }
   .dashboard-notice { cursor: pointer; transition: border-color .15s ease, transform .15s ease; }
+  .dashboard-view .dashboard-notice :deep(.text-h6) { font-size: 1rem !important; font-weight: 400 !important; }
+  .dashboard-view .dashboard-notice :deep(.text-body-1) { color: #4d5261 !important; font-size: .9rem !important; font-weight: 400 !important; opacity: 1 !important; }
   .dashboard-notice:hover { border-color: #2a3472 !important; transform: translateY(-1px); }
+  .dashboard-vehicles-heading, .dashboard-view-all { font-weight: 400 !important; }
+  .dashboard-vehicles-heading { font-size: 1.05rem !important; }
+  .dashboard-view-all { font-size: .86rem !important; }
   .vehicle-dashboard-card { height: 100%; }
   .dashboard-vehicle-statuses { align-items: flex-end; display: flex; flex-direction: column; }
   .dashboard-inspection-status-row { align-items: center; display: flex; justify-content: flex-end; }
   .dashboard-renewal-status-slot { align-items: flex-end; display: flex; justify-content: flex-end; margin-top: 8px; min-height: 24px; }
-  .dashboard-vehicle-plate { align-items: center; color: #20212a; display: flex; flex-wrap: wrap; font-size: 1.15rem; font-weight: 800; gap: 7px; line-height: 1.3; }
-  .dashboard-vehicle-plate span { color: #3a3b43; font-weight: 700; }
+  .dashboard-inspection-status-row :deep(.v-chip), .dashboard-renewal-status-slot :deep(.v-chip),
+  .dashboard-inspection-status-row :deep(.v-chip__content), .dashboard-renewal-status-slot :deep(.v-chip__content) { font-size: .82rem !important; }
+  .dashboard-inspection-status--expired { background: #fee2e2 !important; color: #991b1b !important; }
+  .dashboard-inspection-status--expiring { background: #fff1cf !important; color: #92400e !important; }
+  .dashboard-inspection-status--valid { background: #dcfce7 !important; color: #166534 !important; }
+  .dashboard-renewal-status--info { background: #dbeeff !important; color: #075985 !important; }
+  .dashboard-renewal-status--deep-purple { background: #ede9fe !important; color: #5b21b6 !important; }
+  .dashboard-renewal-status--secondary { background: #f0e7ff !important; color: #6b21a8 !important; }
+  .dashboard-renewal-status--success { background: #dcfce7 !important; color: #166534 !important; }
+  .dashboard-renewal-status--warning { background: #fff1cf !important; color: #8a4b00 !important; }
+  .dashboard-renewal-status--error { background: #fee2e2 !important; color: #b42318 !important; }
+  .dashboard-vehicle-plate { align-items: center; color: #20212a; display: flex; flex-wrap: wrap; font-size: clamp(1.06rem, 1.18vw, 1.2rem); font-weight: 400; gap: 7px; line-height: 1.3; }
+  .dashboard-vehicle-plate span { color: #3a3b43; font-weight: 400; }
+  .dashboard-vehicle-model { font-size: .96rem !important; font-weight: 400; line-height: 1.45; }
+  .dashboard-vehicle-type { font-size: .94rem !important; line-height: 1.45; }
   .dashboard-vehicle-actions { display: grid; gap: 12px; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); }
-  .dashboard-vehicle-actions :deep(.v-btn) { min-width: 0; padding-inline: 10px; }
-  .dashboard-vehicle-actions__renew { font-size: .78rem; letter-spacing: .04em; }
+  .dashboard-vehicle-actions :deep(.v-btn) { font-size: .86rem; letter-spacing: 0; min-width: 0; padding-inline: 10px; text-transform: none; }
+  .dashboard-vehicle-actions__details--only { grid-column: 1 / -1; }
+  .dashboard-vehicle-actions__renew { font-size: .86rem; letter-spacing: 0; }
   .dashboard-vehicle-actions__renew :deep(.v-btn__prepend) { margin-inline-end: 6px; }
-  .inspection-expiry { background: #f4f2f6; color: #363640; }
-  .inspection-expiry--expired { background: #fff0f0; color: #bb1e22; }
-  .inspection-expiry--expiring { background: #fff9e7; color: #9a530d; }
-  .inspection-expiry--valid { background: #effbf3; color: #18733a; }
+  .inspection-expiry { background: #f4f2f6; color: #363640; font-size: .94rem; }
+  .inspection-expiry--expired { background: #fee2e2; color: #991b1b; }
+  .inspection-expiry--expiring { background: #fff1cf; color: #92400e; }
+  .inspection-expiry--valid { background: #dcfce7; color: #166534; }
 
   @media (max-width: 600px) {
     .dashboard-hero {
@@ -384,8 +458,8 @@
         var(--dashboard-hero-image);
       background-position: center, center;
     }
-    .dashboard-hero-title { font-size: clamp(1.65rem, 8vw, 2.15rem); }
-    .dashboard-hero-copy { font-size: .93rem; }
+  .dashboard-hero-title { font-size: clamp(1.45rem, 7vw, 1.85rem); }
+    .dashboard-hero-copy { font-size: .94rem; }
   }
 
   @media (prefers-reduced-motion: reduce) {

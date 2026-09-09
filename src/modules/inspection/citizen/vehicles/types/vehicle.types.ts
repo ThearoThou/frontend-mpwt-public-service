@@ -1,8 +1,11 @@
 export type VehiclePlateCategory = 'PROVINCE' | 'PERSONALIZED_CAMBODIA'
 
+export type VehicleSortField = 'createdAt' | 'registrationNumber' | 'plateNumber' | 'inspectionExpiryDate' | 'updatedAt'
+
 export interface VehicleLookupQuery {
   page?: number
   limit?: number
+  sortBy?: VehicleSortField
   sortOrder?: 'asc' | 'desc'
   search?: string
   registrationNumber?: string
@@ -25,6 +28,11 @@ export interface Vehicle {
   vehicleType: string
   vehicleClass: 'LIGHT' | 'HEAVY' | null
   inspectionCategoryId: string | null
+  inspectionCategory: {
+    id: string
+    nameKh: string
+    nameEn: string | null
+  } | null
   classificationVerifiedAt: string | null
   make: string
   model: string
