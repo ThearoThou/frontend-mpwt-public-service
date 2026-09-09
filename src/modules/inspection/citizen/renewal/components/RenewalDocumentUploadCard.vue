@@ -57,7 +57,7 @@
       <v-avatar color="primary" size="34" variant="tonal">
         <v-icon icon="mdi-file-document-outline" size="20" />
       </v-avatar>
-      <h3 class="text-subtitle-1 font-weight-bold">{{ title }}</h3>
+      <h3 class="document-upload-card__title text-subtitle-1 font-weight-regular">{{ title }}</h3>
     </div>
 
     <v-alert v-if="errorMessage" class="mb-3" density="compact" type="error">
@@ -85,13 +85,18 @@
       <v-icon v-else color="primary" icon="mdi-file-check-outline" size="30" />
 
       <div class="flex-grow-1 min-width-0">
-        <p class="text-body-2 font-weight-medium text-truncate mb-1">{{ document.originalFileName }}</p>
-        <p class="text-caption text-medium-emphasis mb-0">{{ document.mimeType }}</p>
+        <p class="text-body-2 font-weight-regular text-truncate mb-1">{{ document.originalFileName }}</p>
       </div>
 
-      <v-chip color="success" size="small" variant="tonal">
-        {{ $t('inspection_document_uploaded') }}
-      </v-chip>
+      <v-btn
+        v-if="previewUrl"
+        :aria-label="$t('inspection_document_view_image')"
+        icon="mdi-eye-outline"
+        size="small"
+        :title="$t('inspection_document_view_image')"
+        variant="text"
+        @click="previewDialogVisible = true"
+      />
 
       <v-btn
         color="primary"
@@ -130,8 +135,8 @@
       @keydown.space.prevent="chooseFile"
     >
       <v-icon color="primary" icon="mdi-cloud-upload-outline" size="34" />
-      <p class="text-body-2 font-weight-medium mt-2 mb-1">{{ $t('inspection_documents_choose_file_prompt') }}</p>
-      <p class="text-caption text-medium-emphasis text-center mb-3">{{ $t('inspection_document_file_requirements') }}</p>
+      <p class="document-upload-card__prompt text-body-2 font-weight-medium mt-2 mb-1">{{ $t('inspection_documents_choose_file_prompt') }}</p>
+      <p class="document-upload-card__requirements text-caption text-medium-emphasis text-center mb-3">{{ $t('inspection_document_file_requirements') }}</p>
       <v-btn
         color="primary"
         :disabled="uploading"
@@ -161,6 +166,10 @@
     border-radius: 14px;
     padding: 18px;
   }
+
+  .document-upload-card__title { font-size: .94rem; }
+  .document-upload-card__prompt { font-size: .94rem; }
+  .document-upload-card__requirements { font-size: .9rem; }
 
   .document-upload-card__current-file {
     align-items: center;

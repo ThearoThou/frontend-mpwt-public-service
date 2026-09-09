@@ -6,9 +6,12 @@
   import { useRoute, useRouter } from 'vue-router'
   import { inspectionAuthService } from '../../auth/services/auth.service'
   import { inspectionApplicationService } from '../applications/services/application.service'
-  import { inspectionExpiryState } from '../vehicles/utils/inspection-expiry-status'
   import { inspectionVehicleService } from '../vehicles/services/vehicle.service'
+  import { inspectionExpiryState } from '../vehicles/utils/inspection-expiry-status'
+  import { formatVehicleType } from '../vehicles/utils/vehicle-type-label'
+  import LatePenaltyExplanation from './components/LatePenaltyExplanation.vue'
   import RenewalDocumentUploadCard from './components/RenewalDocumentUploadCard.vue'
+  import { prefetchRenewalStep } from './utils/prefetch-renewal-step'
 
   const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024
   const UUID_V4_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
@@ -42,10 +45,6 @@
   const currentDocuments = computed(() => documents.value.filter(document => document.isCurrent))
   const canContinue = computed(() => documentDefinitions.every(item => currentDocument(item.type) !== undefined))
   const hasLateFee = computed(() => Number(feeEstimate.value?.lateFee ?? 0) > 0)
-  const lateFeeDailyRate = computed<number | null>(() => {
-    if (vehicle.value?.vehicleClass === null || vehicle.value === null) return null
-    return vehicle.value.vehicleClass === 'HEAVY' ? 2000 : 500
-  })
   const inspectionState = computed<'expired' | 'expiring' | 'valid'>(() => {
     const inspectionExpiryDate = vehicle.value?.inspectionExpiryDate
     if (inspectionExpiryDate === undefined) return 'valid'
@@ -231,7 +230,10 @@
     })
   }
 
-  onMounted(load)
+  onMounted(() => {
+    prefetchRenewalStep('scheduling')
+    void load()
+  })
   onBeforeUnmount(() => {
     for (const type of Object.keys(imagePreviewUrls.value)) {
       releaseImagePreview(type as ApplicationDocumentType)
@@ -248,38 +250,39 @@
         <v-breadcrumbs-divider icon="mdi-chevron-right" />
         <v-breadcrumbs-item active active-color="primary" class="renewal-breadcrumbs__current">{{ $t('inspection_documents_wizard_documents') }}</v-breadcrumbs-item>
       </v-breadcrumbs>
-      <h1 class="text-h5 font-weight-bold mb-2">{{ $t('inspection_documents_title') }}</h1>
+      <h1 class="text-h5 font-weight-regular mb-2">{{ $t('inspection_documents_title') }}</h1>
       <p class="text-medium-emphasis mb-0">{{ $t('inspection_documents_description') }}</p>
     </header>
+
+    <section :aria-label="$t('inspection_documents_wizard_label')" class="renewal-stepper mb-6">
+      <div class="renewal-stepper__track">
+        <span class="renewal-stepper__track-active" />
+      </div>
+
+      <div class="renewal-stepper__steps">
+        <div class="renewal-stepper__step is-active">
+          <span class="renewal-stepper__number">1</span>
+          <span class="renewal-stepper__label">{{ $t('inspection_documents_wizard_documents') }}</span>
+        </div>
+        <div class="renewal-stepper__step">
+          <span class="renewal-stepper__number">2</span>
+          <span class="renewal-stepper__label">{{ $t('inspection_documents_wizard_service_fee') }}</span>
+        </div>
+        <div class="renewal-stepper__step">
+          <span class="renewal-stepper__number">3</span>
+          <span class="renewal-stepper__label">{{ $t('inspection_documents_wizard_review') }}</span>
+        </div>
+        <div class="renewal-stepper__step">
+          <span class="renewal-stepper__number">4</span>
+          <span class="renewal-stepper__label">{{ $t('inspection_documents_wizard_payment') }}</span>
+        </div>
+      </div>
+    </section>
 
     <v-alert v-if="errorMessage" class="mb-5" type="error">{{ errorMessage }}</v-alert>
     <v-progress-linear v-if="loading" color="primary" indeterminate />
 
     <template v-else-if="application && citizen && vehicle">
-      <section :aria-label="$t('inspection_documents_wizard_label')" class="renewal-stepper mb-6">
-        <div class="renewal-stepper__track">
-          <span class="renewal-stepper__track-active" />
-        </div>
-
-        <div class="renewal-stepper__steps">
-          <div class="renewal-stepper__step is-active">
-            <span class="renewal-stepper__number">1</span>
-            <span class="renewal-stepper__label">{{ $t('inspection_documents_wizard_documents') }}</span>
-          </div>
-          <div class="renewal-stepper__step">
-            <span class="renewal-stepper__number">2</span>
-            <span class="renewal-stepper__label">{{ $t('inspection_documents_wizard_service_fee') }}</span>
-          </div>
-          <div class="renewal-stepper__step">
-            <span class="renewal-stepper__number">3</span>
-            <span class="renewal-stepper__label">{{ $t('inspection_documents_wizard_review') }}</span>
-          </div>
-          <div class="renewal-stepper__step">
-            <span class="renewal-stepper__number">4</span>
-            <span class="renewal-stepper__label">{{ $t('inspection_documents_wizard_payment') }}</span>
-          </div>
-        </div>
-      </section>
 
       <v-row class="renewal-documents__layout">
         <v-col cols="12" md="8">
@@ -289,8 +292,7 @@
                 <v-icon icon="mdi-car-info" />
               </v-avatar>
               <div>
-                <h2 class="text-h6 font-weight-bold mb-1">{{ $t('inspection_documents_applicant_vehicle') }}</h2>
-                <p class="text-body-2 text-medium-emphasis mb-0">{{ $t('inspection_documents_info_helper') }}</p>
+                <h2 class="text-h6 font-weight-regular mb-1">{{ $t('inspection_documents_applicant_vehicle') }}</h2>
               </div>
             </div>
 
@@ -319,6 +321,14 @@
                 <span>{{ $t('inspection_documents_first_registration_date') }}</span>
                 <strong>{{ vehicle.firstRegistrationDate }}</strong>
               </div>
+              <div class="renewal-info-field">
+                <span>{{ $t('inspection_make_and_model') }}</span>
+                <strong>{{ [vehicle.make, vehicle.model, vehicle.manufactureYear].filter(Boolean).join(' · ') || '—' }}</strong>
+              </div>
+              <div class="renewal-info-field">
+                <span>{{ $t('inspection_vehicle_type') }}</span>
+                <strong>{{ formatVehicleType(vehicle.vehicleType, t) }}</strong>
+              </div>
             </div>
           </v-card>
 
@@ -328,8 +338,7 @@
                 <v-icon icon="mdi-car-cog" />
               </v-avatar>
               <div>
-                <h2 class="text-h6 font-weight-bold mb-1">{{ $t('inspection_documents_inspection_information') }}</h2>
-                <p class="text-body-2 text-medium-emphasis mb-0">{{ $t('inspection_documents_inspection_helper') }}</p>
+                <h2 class="text-h6 font-weight-regular mb-1">{{ $t('inspection_documents_inspection_information') }}</h2>
               </div>
             </div>
 
@@ -360,20 +369,25 @@
                 <span>{{ $t('inspection_documents_late_fee') }}</span>
                 <strong :class="feeEstimate?.lateFee !== '0.00' ? 'text-error' : ''">
                   {{ feeEstimate ? `${feeEstimate.lateFee} ${feeEstimate.currency}` : '—' }}
-                  <small v-if="hasLateFee && lateFeeDailyRate !== null">{{ $t('inspection_documents_late_fee_daily_rate', { rate: lateFeeDailyRate }) }}</small>
                 </strong>
               </div>
             </div>
+            <LatePenaltyExplanation
+              v-if="feeEstimate"
+              :currency="feeEstimate.currency"
+              :late-days="feeEstimate.lateDays"
+              :late-fee="feeEstimate.lateFee"
+              :vehicle-class="vehicle.vehicleClass"
+            />
           </v-card>
 
-          <v-alert class="mb-5" density="comfortable" type="info" variant="tonal">
+          <v-alert class="renewal-documents__notice mb-5" density="comfortable" type="info" variant="tonal">
             {{ $t('inspection_documents_review_information_notice') }}
           </v-alert>
 
           <v-card border class="renewal-document-section pa-5 pa-md-6" elevation="0" rounded="xl">
             <div class="mb-5">
-              <h2 class="text-h6 font-weight-bold mb-1">{{ $t('inspection_documents_required') }}</h2>
-              <p class="text-body-2 text-medium-emphasis mb-0">{{ $t('inspection_document_file_requirements') }}</p>
+              <h2 class="text-h6 font-weight-regular mb-1">{{ $t('inspection_documents_required') }}</h2>
             </div>
 
             <div class="d-flex flex-column ga-4">
@@ -407,16 +421,6 @@
               <v-progress-linear bg-color="white" class="mt-4" color="white" :model-value="25" rounded />
               <p class="text-body-2 mt-2 mb-0">{{ $t('inspection_documents_step_one_of_four') }}</p>
             </v-card>
-
-            <v-card border class="renewal-help-card pa-5" elevation="0" rounded="xl">
-              <div class="d-flex align-start ga-3">
-                <v-icon color="primary" icon="mdi-headset" size="30" />
-                <div>
-                  <h2 class="text-subtitle-1 font-weight-bold mb-1">{{ $t('inspection_documents_need_help') }}</h2>
-                  <p class="text-body-2 text-medium-emphasis mb-0">{{ $t('inspection_documents_help_copy') }}</p>
-                </div>
-              </div>
-            </v-card>
           </aside>
         </v-col>
       </v-row>
@@ -434,12 +438,20 @@
     margin-bottom: 24px;
   }
 
+  .renewal-documents__heading > p {
+    font-size: .94rem;
+  }
+
   .renewal-breadcrumbs :deep(.v-breadcrumbs-item--link) {
     color: #697080;
   }
 
+  .renewal-breadcrumbs :deep(.v-breadcrumbs-item) {
+    font-size: 0.94rem;
+  }
+
   .renewal-breadcrumbs :deep(.renewal-breadcrumbs__current) {
-    background: #e9ebf8;
+  background: #d8def8;
     border-radius: 999px;
     color: #2a3472;
     font-weight: 700;
@@ -477,7 +489,7 @@
     color: #7c8190;
     display: flex;
     flex-direction: column;
-    font-size: 0.78rem;
+    font-size: .86rem;
     gap: 4px;
     position: relative;
     text-align: center;
@@ -518,8 +530,8 @@
   }
 
   .renewal-stepper__step.is-active .renewal-stepper__label {
-    font-size: 0.95rem;
-    font-weight: 800;
+    font-size: .86rem;
+    font-weight: 450;
     line-height: 1.2;
   }
 
@@ -552,12 +564,12 @@
 
   .renewal-info-field span {
     color: #7c8190;
-    font-size: 0.78rem;
+    font-size: .9rem;
   }
 
   .renewal-info-field strong {
     color: #303746;
-    font-size: 0.95rem;
+    font-size: .94rem;
     overflow-wrap: anywhere;
   }
 
@@ -567,8 +579,27 @@
     white-space: nowrap;
   }
 
+  .renewal-info-card > .d-flex > div > p,
+  .renewal-inspection-card > .d-flex > div > p,
+  .renewal-document-section > div > p {
+    font-size: .94rem;
+  }
+
   .renewal-progress-card {
     background: #2c3678;
+  }
+
+  .renewal-documents__notice {
+    background: #e9ebf8 !important;
+    color: #2a3472 !important;
+  }
+
+  .renewal-documents__notice :deep(.v-icon) {
+    color: #2a3472 !important;
+  }
+
+  .renewal-progress-card :deep(*) {
+    font-weight: 400 !important;
   }
 
   .renewal-inspection-card {
@@ -585,10 +616,6 @@
 
   .renewal-progress-card :deep(.v-progress-linear__background) {
     opacity: 0.28;
-  }
-
-  .renewal-help-card {
-    border-style: dashed !important;
   }
 
   @media (max-width: 959px) {
@@ -616,8 +643,12 @@
     }
 
     .renewal-stepper__label {
-      font-size: 0.72rem;
+      font-size: .72rem;
       line-height: 1.2;
+    }
+
+    .renewal-stepper__step.is-active .renewal-stepper__label {
+      font-size: .72rem;
     }
 
     .renewal-info-card__grid {

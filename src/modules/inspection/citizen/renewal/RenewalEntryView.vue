@@ -7,7 +7,7 @@
   import { inspectionVehicleService } from '../vehicles/services/vehicle.service'
   import { CAMBODIAN_CAPITAL_PROVINCES_KH, type Vehicle, type VehicleLookupQuery, type VehiclePlateCategory } from '../vehicles/types/vehicle.types'
   import { inspectionExpiryState } from '../vehicles/utils/inspection-expiry-status'
-  import { findRenewalEntryApplication, findUnfinishedApplication, renewalEntryAction, unfinishedApplicationMessageKey } from './utils/renewal-entry-action'
+  import { findRenewalEntryApplication, findUnfinishedApplication, renewalApplicationStatusBadge, renewalEntryAction, renewalReminderBadge, unfinishedApplicationMessageKey } from './utils/renewal-entry-action'
 
   type ApiErrorResponse = { code?: string, message?: string }
   type TemporaryFeedbackKind = 'validation' | 'lookup-api' | 'not-found' | 'draft-api'
@@ -37,6 +37,19 @@
     ? undefined
     : findRenewalEntryApplication(applications.value, matchedVehicle.value.id))
   const matchedVehicleRenewalAction = computed(() => renewalEntryAction(matchedApplication.value))
+  const matchedVehicleInspectionStatus = computed(() => {
+    const state = matchedVehicle.value === null ? 'valid' : inspectionExpiryState(matchedVehicle.value.inspectionExpiryDate)
+    return {
+      expired: { state: 'expired', color: 'error', icon: 'mdi-calendar-alert-outline', labelKey: 'inspection_dashboard_expired' },
+      expiring: { state: 'expiring', color: 'warning', icon: 'mdi-calendar-clock-outline', labelKey: 'inspection_dashboard_expiring' },
+      valid: { state: 'valid', color: 'success', icon: 'mdi-check-circle-outline', labelKey: 'inspection_dashboard_valid' },
+    }[state]
+  })
+  const matchedVehicleRenewalStatus = computed(() => {
+    if (matchedVehicle.value === null) return undefined
+    return renewalApplicationStatusBadge(matchedApplication.value)
+      ?? renewalReminderBadge(matchedVehicle.value.inspectionExpiryDate)
+  })
   const plateCategoryItems = computed(() => [
     { title: t('inspection_plate_category_province'), value: 'PROVINCE' },
     { title: t('inspection_plate_category_personalized'), value: 'PERSONALIZED_CAMBODIA' },
@@ -61,6 +74,10 @@
 
   function clearResults () {
     matchedVehicle.value = null
+  }
+
+  function updateMatchedVehicleDialog (isOpen: boolean) {
+    if (!isOpen) clearResults()
   }
 
   function clearTemporaryFeedback () {
@@ -165,7 +182,7 @@
       }
 
       matchedVehicle.value = response.data[0]
-      applications.value = await inspectionApplicationService.listCitizenApplications()
+      applications.value = (await inspectionApplicationService.listCitizenApplications()).data
     } catch (error) {
       showTemporaryFeedback('lookup-api', getErrorMessage(error, 'inspection_vehicle_lookup_error'), 'error')
     } finally {
@@ -286,8 +303,8 @@
   async function handleUnfinishedApplication (vehicleId: string) {
     try {
       const citizenApplications = await inspectionApplicationService.listCitizenApplications()
-      applications.value = citizenApplications
-      const unfinishedApplication = findUnfinishedApplication(citizenApplications, vehicleId)
+      applications.value = citizenApplications.data
+      const unfinishedApplication = findUnfinishedApplication(citizenApplications.data, vehicleId)
 
       if (unfinishedApplication?.status === 'DRAFT') {
         await router.push({ path: '/services/inspection/renewal/documents', query: { applicationId: unfinishedApplication.id } })
@@ -314,8 +331,8 @@
 
     <v-card class="renewal-lookup-card pa-5 pa-md-7" elevation="0" rounded="xl">
       <div class="mb-6">
-        <h1 class="text-h5 font-weight-bold mb-2">{{ $t('inspection_vehicle_lookup') }}</h1>
-        <p class="text-body-1 text-medium-emphasis mb-0">{{ $t('inspection_vehicle_lookup_description') }}</p>
+        <h1 class="text-h5 font-weight-regular mb-2">{{ $t('inspection_vehicle_lookup') }}</h1>
+        <p class="renewal-lookup-description text-body-1 mb-0">{{ $t('inspection_vehicle_lookup_description') }}</p>
       </div>
 
       <v-alert v-if="temporaryFeedback && temporaryFeedbackMessage" class="mb-5" density="compact" :type="temporaryFeedback.type">
@@ -368,7 +385,17 @@
           <v-col cols="12" md="6">
             <label class="renewal-field-label" for="renewal-first-registration-date">{{ $t('inspection_first_registration_date') }}</label>
 
-            <v-text-field id="renewal-first-registration-date" density="comfortable" hide-details inputmode="numeric" maxlength="10" :model-value="firstRegistrationDateInput" placeholder="dd/mm/yyyy" variant="outlined" @update:model-value="onFirstRegistrationDateInput" />
+            <v-text-field
+              id="renewal-first-registration-date"
+              density="comfortable"
+              hide-details
+              inputmode="numeric"
+              maxlength="10"
+              :model-value="firstRegistrationDateInput"
+              placeholder="dd/mm/yyyy"
+              variant="outlined"
+              @update:model-value="onFirstRegistrationDateInput"
+            />
           </v-col>
 
           <v-col cols="12" md="6">
@@ -387,7 +414,7 @@
 
         <v-divider class="mt-auto mb-6" />
 
-        <div class="d-flex flex-wrap ga-3 justify-end">
+        <div class="renewal-lookup-actions d-flex flex-wrap ga-3 justify-end">
           <v-btn
             :disabled="searching"
             min-width="120"
@@ -416,75 +443,111 @@
       <p class="text-medium-emphasis mt-3 mb-0">{{ $t('inspection_searching') }}</p>
     </div>
 
-    <v-card
+    <v-dialog
       v-else-if="matchedVehicle"
-      border
-      class="vehicle-result mt-6 pa-5"
-      elevation="0"
-      rounded="lg"
+      attach=".inspection-page"
+      contained
+      max-width="1100"
+      :model-value="Boolean(matchedVehicle)"
+      @update:model-value="updateMatchedVehicleDialog"
     >
-      <div class="d-flex flex-wrap align-center justify-space-between ga-3 mb-4">
-        <div>
-          <h2 class="text-h6 font-weight-bold mb-1">{{ $t('inspection_vehicle_found') }}</h2>
-          <p class="text-body-2 text-medium-emphasis mb-0">{{ $t('inspection_vehicle_found_description') }}</p>
-        </div>
-
-        <v-chip color="success" prepend-icon="mdi-check-circle" variant="tonal">{{ $t('inspection_vehicle_found') }}</v-chip>
-      </div>
-
-      <div class="vehicle-result__details">
-        <div>
-          <p class="text-caption text-medium-emphasis mb-1">{{ $t('inspection_vehicle_details') }}</p>
-          <p class="font-weight-bold mb-0">{{ matchedVehicle.make }} {{ matchedVehicle.model }}<span v-if="matchedVehicle.manufactureYear"> · {{ matchedVehicle.manufactureYear }}</span></p>
-        </div>
-
-        <div>
-          <p class="text-caption text-medium-emphasis mb-1">{{ $t('inspection_plate_number') }}</p>
-          <p class="font-weight-bold mb-0">{{ matchedVehicle.plateNumber }}</p>
-        </div>
-
-        <div v-if="matchedVehicle.plateProvince">
-          <p class="text-caption text-medium-emphasis mb-1">{{ $t('inspection_plate_province') }}</p>
-          <p class="font-weight-bold mb-0">{{ matchedVehicle.plateProvince }}</p>
-        </div>
-
-        <div>
-          <p class="text-caption text-medium-emphasis mb-1">{{ $t('inspection_chassis_number') }}</p>
-          <p class="font-weight-bold mb-0">{{ matchedVehicle.chassisNumber }}</p>
-        </div>
-
-        <div>
-          <p class="text-caption text-medium-emphasis mb-1">{{ $t('inspection_first_registration_date') }}</p>
-          <p class="font-weight-bold mb-0">{{ matchedVehicle.firstRegistrationDate }}</p>
-        </div>
-      </div>
-
-      <div class="d-flex justify-end mt-5">
-        <v-alert
-          v-if="matchedApplication?.status === 'INSPECTION_FAILED'"
-          class="mr-auto"
-          density="compact"
-          type="warning"
-          variant="tonal"
-        >
-          {{ $t('inspection_renewal_inspection_failed_message') }}
-        </v-alert>
-
-        <v-alert v-if="matchedVehicleRenewalIsNotYetAvailable && !matchedApplication" density="compact" type="info" variant="tonal">
-          {{ $t('inspection_renewal_not_yet_eligible') }}
-        </v-alert>
-
+      <v-card border class="vehicle-result pa-5" elevation="0" rounded="lg">
         <v-btn
-          v-else
-          color="primary"
-          :loading="creatingDraft"
-          :prepend-icon="matchedVehicleRenewalAction.icon"
-          @click="handleRenewalAction"
-        >
-          {{ $t(matchedVehicleRenewalAction.labelKey) }}
-        </v-btn>
-      </div>
-    </v-card>
+          aria-label="Close"
+          class="vehicle-result__close"
+          icon="mdi-close"
+          size="small"
+          variant="text"
+          @click="clearResults"
+        />
+
+        <div class="d-flex flex-wrap align-center justify-space-between ga-3 mb-4">
+          <div>
+            <h2 class="text-h6 font-weight-bold mb-1">{{ $t('inspection_vehicle_found') }}</h2>
+          </div>
+
+          <div class="vehicle-result__statuses">
+            <v-chip
+              :class="['vehicle-result__inspection-status', `vehicle-result__inspection-status--${matchedVehicleInspectionStatus.state}`]"
+              :color="matchedVehicleInspectionStatus.color"
+              :prepend-icon="matchedVehicleInspectionStatus.icon"
+              size="small"
+              :style="{ fontSize: '.92rem', height: '28px', minHeight: '28px' }"
+              variant="tonal"
+            >{{ $t(matchedVehicleInspectionStatus.labelKey) }}</v-chip>
+
+            <v-chip
+              v-if="matchedVehicleRenewalStatus"
+              :class="['vehicle-result__renewal-status', `vehicle-result__renewal-status--${matchedVehicleRenewalStatus.color}`]"
+              :color="matchedVehicleRenewalStatus.color"
+              :prepend-icon="matchedVehicleRenewalStatus.icon"
+              size="small"
+              :style="{ fontSize: '.88rem', height: '28px', minHeight: '28px' }"
+              variant="tonal"
+            >{{ $t(matchedVehicleRenewalStatus.labelKey) }}</v-chip>
+          </div>
+        </div>
+
+        <div class="vehicle-result__details">
+          <div>
+            <p class="text-caption text-medium-emphasis mb-1">{{ $t('inspection_vehicle_details') }}</p>
+            <p class="font-weight-bold mb-0">{{ matchedVehicle.make }} {{ matchedVehicle.model }}<span v-if="matchedVehicle.manufactureYear"> · {{ matchedVehicle.manufactureYear }}</span></p>
+          </div>
+
+          <div v-if="matchedVehicle.plateProvince">
+            <p class="text-caption text-medium-emphasis mb-1">{{ $t('inspection_plate_province') }}</p>
+            <p class="font-weight-bold mb-0">{{ matchedVehicle.plateProvince }}</p>
+          </div>
+
+          <div>
+            <p class="text-caption text-medium-emphasis mb-1">{{ $t('inspection_plate_number') }}</p>
+            <p class="font-weight-bold mb-0">{{ matchedVehicle.plateNumber }}</p>
+          </div>
+
+          <div>
+            <p class="text-caption text-medium-emphasis mb-1">{{ $t('inspection_chassis_number') }}</p>
+            <p class="font-weight-bold mb-0">{{ matchedVehicle.chassisNumber }}</p>
+          </div>
+
+          <div>
+            <p class="text-caption text-medium-emphasis mb-1">{{ $t('inspection_first_registration_date') }}</p>
+            <p class="font-weight-bold mb-0">{{ matchedVehicle.firstRegistrationDate }}</p>
+          </div>
+        </div>
+
+        <div class="d-flex justify-end mt-5">
+          <v-alert
+            v-if="matchedApplication?.status === 'INSPECTION_FAILED'"
+            class="mr-auto"
+            density="compact"
+            type="warning"
+            variant="tonal"
+          >
+            {{ $t('inspection_renewal_inspection_failed_message') }}
+          </v-alert>
+
+          <v-alert
+            v-if="matchedVehicleRenewalIsNotYetAvailable && !matchedApplication"
+            class="renewal-entry__not-yet-eligible"
+            density="compact"
+            type="info"
+            variant="flat"
+          >
+            {{ $t('inspection_renewal_not_yet_eligible') }}
+          </v-alert>
+
+          <v-btn
+            v-else
+            color="primary"
+            :loading="creatingDraft"
+            :prepend-icon="matchedVehicleRenewalAction.icon"
+            @click="handleRenewalAction"
+          >
+            {{ $t(matchedVehicleRenewalAction.labelKey) }}
+          </v-btn>
+        </div>
+      </v-card>
+    </v-dialog>
   </section>
 </template>
 
@@ -497,8 +560,12 @@
     color: #697080;
   }
 
+  .renewal-breadcrumbs :deep(.v-breadcrumbs-item) {
+    font-size: 0.94rem;
+  }
+
   .renewal-breadcrumbs :deep(.renewal-breadcrumbs__current) {
-    background: #e9ebf8;
+    background: #d8def8;
     border-radius: 999px;
     color: #2a3472;
     font-weight: 700;
@@ -509,6 +576,11 @@
   .renewal-lookup-card {
     border: 1px solid #ececf1;
     min-height: 610px;
+  }
+
+  .renewal-lookup-description {
+    color: #656776;
+    font-size: .94rem !important;
   }
 
   .renewal-lookup-form {
@@ -525,7 +597,7 @@
   .renewal-field-label {
     color: #394053;
     display: block;
-    font-size: 1rem;
+    font-size: .94rem;
     font-weight: 600;
     margin-bottom: 10px;
   }
@@ -535,10 +607,65 @@
     font-weight: 700;
   }
 
+  .renewal-lookup-form :deep(.v-field),
+  .renewal-lookup-form :deep(.v-field__input) {
+    font-size: .94rem;
+  }
+
+  .renewal-lookup-actions :deep(.v-btn) {
+    font-size: .95rem;
+  }
+
   .vehicle-result__details {
     display: grid;
     gap: 20px;
     grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  }
+
+  .vehicle-result {
+    position: relative;
+  }
+
+  .vehicle-result :deep(*) {
+    font-weight: 400 !important;
+  }
+
+  .vehicle-result__details > div > p:first-child { font-size: .9rem !important; }
+  .vehicle-result__details > div > p:last-child { font-size: .94rem !important; }
+
+  .vehicle-result__close {
+    position: absolute;
+    right: 12px;
+    top: 12px;
+  }
+
+  .vehicle-result__statuses {
+    align-items: flex-end;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-right: 36px;
+  }
+
+  .vehicle-result__inspection-status { font-size: .92rem; height: 28px !important; min-height: 28px; }
+  .vehicle-result__inspection-status--expired { background: #fee2e2 !important; color: #b42318 !important; }
+  .vehicle-result__inspection-status--expiring { background: #fff1cf !important; color: #8a4b00 !important; }
+  .vehicle-result__inspection-status--valid { background: #dcfce7 !important; color: #166534 !important; }
+  .vehicle-result__renewal-status { font-size: .88rem; height: 28px !important; min-height: 28px; }
+  .vehicle-result__renewal-status--info { background: #dbeeff !important; color: #075985 !important; }
+  .vehicle-result__renewal-status--deep-purple { background: #ede9fe !important; color: #5b21b6 !important; }
+  .vehicle-result__renewal-status--secondary { background: #f0e7ff !important; color: #6b21a8 !important; }
+  .vehicle-result__renewal-status--success { background: #dcfce7 !important; color: #166534 !important; }
+  .vehicle-result__renewal-status--warning { background: #fff1cf !important; color: #8a4b00 !important; }
+  .vehicle-result__renewal-status--error { background: #fee2e2 !important; color: #b42318 !important; }
+
+  .renewal-entry__not-yet-eligible {
+    background: #2a3472 !important;
+    color: #fff !important;
+  }
+
+  .renewal-entry__not-yet-eligible :deep(.v-icon) {
+    color: #fff !important;
   }
 
 </style>

@@ -14,7 +14,9 @@
   import { inspectionApplicationService } from '../applications/services/application.service'
   import { inspectionVehicleService } from '../vehicles/services/vehicle.service'
   import { formatVehicleType } from '../vehicles/utils/vehicle-type-label'
+  import LatePenaltyExplanation from './components/LatePenaltyExplanation.vue'
   import { inspectionSchedulingService } from './services/scheduling.service'
+  import { prefetchRenewalStep } from './utils/prefetch-renewal-step'
 
   const UUID_V4_PATTERN
     = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
@@ -106,16 +108,6 @@
       PREVIOUS_INSPECTION_CERTIFICATE: 'mdi-certificate-outline',
       CITIZEN_ID_CARD: 'mdi-card-account-details-outline',
     }[type]
-  }
-
-  function documentStatusColor (status: ApplicationDocument['status']): string {
-    return { PENDING: 'warning', APPROVED: 'success', REJECTED: 'error' }[status]
-  }
-
-  function documentStatusText (status: ApplicationDocument['status']): string {
-    if (status === 'PENDING')
-      return t('inspection_review_document_uploaded_pending')
-    return t(`inspection_review_document_${status.toLowerCase()}`)
   }
 
   function stationName (value: InspectionStation): string {
@@ -283,7 +275,10 @@
     })
   }
 
-  onMounted(load)
+  onMounted(() => {
+    prefetchRenewalStep('payment')
+    void load()
+  })
   onBeforeUnmount(closeDocumentPreview)
 </script>
 
@@ -306,13 +301,52 @@
           class="renewal-breadcrumbs__current"
         >{{ $t("inspection_documents_wizard_review") }}</v-breadcrumbs-item>
       </v-breadcrumbs>
-      <h1 class="text-h5 font-weight-bold mb-2">
+      <h1 class="text-h5 font-weight-regular mb-2">
         {{ $t("inspection_review_title") }}
       </h1>
-      <p class="text-medium-emphasis mb-0">
+      <p class="renewal-review__supporting-copy text-medium-emphasis mb-0">
         {{ $t("inspection_review_description") }}
       </p>
     </header>
+
+    <section
+      :aria-label="$t('inspection_documents_wizard_label')"
+      class="renewal-stepper mb-6"
+    >
+      <div class="renewal-stepper__track">
+        <span class="renewal-stepper__track-active" />
+      </div>
+      <div class="renewal-stepper__steps">
+        <button
+          class="renewal-stepper__step is-complete is-clickable"
+          type="button"
+          @click="goToDocuments"
+        >
+          <span class="renewal-stepper__number"><v-icon icon="mdi-check" size="17" /></span><span class="renewal-stepper__label">{{
+            $t("inspection_documents_wizard_documents")
+          }}</span>
+        </button>
+        <button
+          class="renewal-stepper__step is-complete is-clickable"
+          type="button"
+          @click="goToScheduling"
+        >
+          <span class="renewal-stepper__number"><v-icon icon="mdi-check" size="17" /></span><span class="renewal-stepper__label">{{
+            $t("inspection_documents_wizard_service_fee")
+          }}</span>
+        </button>
+        <div class="renewal-stepper__step is-active">
+          <span class="renewal-stepper__number">3</span><span class="renewal-stepper__label">{{
+            $t("inspection_documents_wizard_review")
+          }}</span>
+        </div>
+        <div class="renewal-stepper__step">
+          <span class="renewal-stepper__number">4</span><span class="renewal-stepper__label">{{
+            $t("inspection_documents_wizard_payment")
+          }}</span>
+        </div>
+      </div>
+    </section>
 
     <v-alert v-if="errorMessage" class="mb-5" type="error">{{
       errorMessage
@@ -320,44 +354,6 @@
     <v-progress-linear v-if="loading" color="primary" indeterminate />
 
     <template v-else-if="application && citizen && vehicle">
-      <section
-        :aria-label="$t('inspection_documents_wizard_label')"
-        class="renewal-stepper mb-6"
-      >
-        <div class="renewal-stepper__track">
-          <span class="renewal-stepper__track-active" />
-        </div>
-        <div class="renewal-stepper__steps">
-          <button
-            class="renewal-stepper__step is-complete is-clickable"
-            type="button"
-            @click="goToDocuments"
-          >
-            <span class="renewal-stepper__number"><v-icon icon="mdi-check" size="17" /></span><span class="renewal-stepper__label">{{
-              $t("inspection_documents_wizard_documents")
-            }}</span>
-          </button>
-          <button
-            class="renewal-stepper__step is-complete is-clickable"
-            type="button"
-            @click="goToScheduling"
-          >
-            <span class="renewal-stepper__number"><v-icon icon="mdi-check" size="17" /></span><span class="renewal-stepper__label">{{
-              $t("inspection_documents_wizard_service_fee")
-            }}</span>
-          </button>
-          <div class="renewal-stepper__step is-active">
-            <span class="renewal-stepper__number">3</span><span class="renewal-stepper__label">{{
-              $t("inspection_documents_wizard_review")
-            }}</span>
-          </div>
-          <div class="renewal-stepper__step">
-            <span class="renewal-stepper__number">4</span><span class="renewal-stepper__label">{{
-              $t("inspection_documents_wizard_payment")
-            }}</span>
-          </div>
-        </div>
-      </section>
 
       <v-row class="renewal-review__layout">
         <v-col cols="12" md="8">
@@ -370,7 +366,7 @@
             <div class="d-flex align-center ga-3 mb-5">
               <v-avatar color="primary" size="42" variant="tonal"><v-icon icon="mdi-car-info" /></v-avatar>
               <div>
-                <h2 class="text-h6 font-weight-bold mb-1">
+                <h2 class="text-h6 font-weight-regular mb-1">
                   {{ $t("inspection_documents_applicant_vehicle") }}
                 </h2>
                 <p class="text-body-2 text-medium-emphasis mb-0">
@@ -423,10 +419,10 @@
             <div class="d-flex align-center ga-3 mb-4">
               <v-avatar color="primary" size="42" variant="tonal"><v-icon icon="mdi-folder-outline" /></v-avatar>
               <div>
-                <h2 class="text-h6 font-weight-bold mb-1">
+                <h2 class="text-h6 font-weight-regular mb-1">
                   {{ $t("inspection_documents_required") }}
                 </h2>
-                <p class="text-body-2 text-medium-emphasis mb-0">
+                <p class="review-card__supporting-copy text-body-2 text-medium-emphasis mb-0">
                   {{ $t("inspection_review_documents_copy") }}
                 </p>
               </div>
@@ -439,26 +435,19 @@
               >
                 <v-icon color="primary" :icon="documentIcon(type)" size="21" />
                 <div class="flex-grow-1 min-width-0">
-                  <strong class="text-body-2">{{
+                  <strong class="review-document-row__title text-body-2">{{
                     $t(documentTitleKeys[type])
                   }}</strong><span
                     v-if="currentDocument(type)"
-                    class="text-caption text-medium-emphasis text-truncate"
+                    class="review-document-row__filename text-caption text-medium-emphasis text-truncate"
                   >{{ currentDocument(type)?.originalFileName }}</span><span v-else class="text-caption text-error">{{
                     $t("inspection_document_not_uploaded")
                   }}</span>
                 </div>
-                <v-chip
-                  v-if="currentDocument(type)"
-                  :color="documentStatusColor(currentDocument(type)!.status)"
-                  size="x-small"
-                  variant="tonal"
-                >{{
-                  documentStatusText(currentDocument(type)!.status)
-                }}</v-chip>
                 <v-btn
                   v-if="currentDocument(type)"
                   :aria-label="$t('inspection_review_view_document')"
+                  :disabled="viewingDocumentId !== null"
                   icon="mdi-eye-outline"
                   :loading="viewingDocumentId === currentDocument(type)?.id"
                   size="small"
@@ -478,10 +467,10 @@
             <div class="d-flex align-center ga-3 mb-4">
               <v-avatar color="primary" size="42" variant="tonal"><v-icon icon="mdi-cash-multiple" /></v-avatar>
               <div>
-                <h2 class="text-h6 font-weight-bold mb-1">
+                <h2 class="text-h6 font-weight-regular mb-1">
                   {{ $t("inspection_review_estimated_fee_title") }}
                 </h2>
-                <p class="text-body-2 text-medium-emphasis mb-0">
+                <p class="review-card__supporting-copy text-body-2 text-medium-emphasis mb-0">
                   {{ $t("inspection_review_fee_copy") }}
                 </p>
               </div>
@@ -495,19 +484,17 @@
                   )
                 }}</strong>
               </div>
-              <div class="review-fee-row">
-                <span>{{ $t("inspection_scheduling_service_fee") }}</span><strong>{{
-                  formatCurrency(
-                    feeEstimate.serviceFeeKhr,
-                    feeEstimate.currency,
-                  )
-                }}</strong>
-              </div>
-              <div class="review-fee-row">
+              <div class="review-fee-row review-fee-row--late">
                 <span>{{ $t("inspection_scheduling_late_fee") }}</span><strong :class="hasLateFee ? 'text-error' : ''">{{
                   formatCurrency(feeEstimate.lateFee, feeEstimate.currency)
                 }}</strong>
               </div>
+              <LatePenaltyExplanation
+                :currency="feeEstimate.currency"
+                :late-days="feeEstimate.lateDays"
+                :late-fee="feeEstimate.lateFee"
+                :vehicle-class="vehicle.vehicleClass"
+              />
               <div class="review-fee-row review-fee-row--total">
                 <span>{{ $t("inspection_scheduling_estimated_total") }}</span><strong>{{
                   formatCurrency(feeEstimate.totalAmount, feeEstimate.currency)
@@ -532,9 +519,6 @@
                 :disabled="!canContinueToPayment"
                 @click="continueToPayment"
               >{{ $t("inspection_review_continue_to_payment") }}</v-btn>
-              <p class="text-caption text-medium-emphasis mt-2 mb-0">
-                {{ $t("inspection_review_continue_payment_copy") }}
-              </p>
             </div>
           </div>
         </v-col>
@@ -568,7 +552,7 @@
               rounded="xl"
             ><div class="d-flex align-center ga-3 mb-4">
                <v-avatar color="primary" size="38" variant="tonal"><v-icon icon="mdi-check-circle-outline" /></v-avatar>
-               <h2 class="text-subtitle-1 font-weight-bold">
+               <h2 class="text-subtitle-1 font-weight-regular">
                  {{ $t("inspection_review_ready_to_submit") }}
                </h2>
              </div>
@@ -617,11 +601,12 @@
               <div class="d-flex align-center justify-space-between ga-2 mb-4">
                 <div class="d-flex align-center ga-3">
                   <v-avatar color="primary" size="38" variant="tonal"><v-icon icon="mdi-calendar-check-outline" /></v-avatar>
-                  <h2 class="text-subtitle-1 font-weight-bold">
+                  <h2 class="text-subtitle-1 font-weight-regular">
                     {{ $t("inspection_review_schedule_title") }}
                   </h2>
                 </div>
                 <v-btn
+                  class="review-schedule-card__change"
                   color="primary"
                   size="small"
                   variant="text"
@@ -630,7 +615,7 @@
               </div>
               <template v-if="application.preferredInspectionDate">
                 <template v-if="station">
-                  <p class="text-body-2 font-weight-medium mb-1">
+                  <p class="text-body-2 font-weight-regular mb-1">
                     {{ stationName(station) }}
                   </p>
                   <p class="text-body-2 text-medium-emphasis mb-2">
@@ -638,7 +623,7 @@
                   </p>
                 </template>
                 <template v-else>
-                  <p class="text-body-2 font-weight-medium mb-1">
+                  <p class="text-body-2 font-weight-regular mb-1">
                     {{ $t('inspection_scheduling_no_station_preference') }}
                   </p>
                   <p class="text-body-2 text-medium-emphasis mb-2">
@@ -711,8 +696,11 @@
 .renewal-breadcrumbs :deep(.v-breadcrumbs-item--link) {
   color: #697080;
 }
+.renewal-breadcrumbs :deep(.v-breadcrumbs-item) {
+  font-size: 0.94rem;
+}
 .renewal-breadcrumbs :deep(.renewal-breadcrumbs__current) {
-  background: #e9ebf8;
+  background: #d8def8;
   border-radius: 999px;
   color: #2a3472;
   font-weight: 700;
@@ -741,7 +729,7 @@
   color: #7c8190;
   display: flex;
   flex-direction: column;
-  font-size: 0.78rem;
+  font-size: .86rem;
   gap: 4px;
   position: relative;
   text-align: center;
@@ -784,7 +772,7 @@
   font-weight: 500;
 }
 .renewal-stepper__step.is-active .renewal-stepper__label {
-  font-size: 0.95rem;
+  font-size: .86rem;
   font-weight: 800;
   line-height: 1.2;
 }
@@ -812,12 +800,29 @@
 }
 .review-info-grid span {
   color: #787e8d;
-  font-size: 0.76rem;
+  font-size: .9rem !important;
 }
 .review-info-grid strong {
   color: #242834;
-  font-size: 0.91rem;
+  font-size: .94rem !important;
   overflow-wrap: anywhere;
+}
+.renewal-review__heading > p {
+  font-size: .94rem !important;
+}
+.review-card > .d-flex > div > p,
+.review-schedule-card > p.text-body-2 {
+  font-size: .94rem !important;
+}
+.renewal-review__supporting-copy {
+  font-size: .94rem !important;
+}
+.review-card__supporting-copy {
+  font-family: inherit !important;
+  font-size: .94rem !important;
+  font-weight: 400 !important;
+  letter-spacing: normal !important;
+  line-height: 1.5 !important;
 }
 .review-document-list {
   display: flex;
@@ -839,6 +844,12 @@
   flex-direction: column;
   min-width: 0;
 }
+.review-document-row__title {
+  font-size: .94rem !important;
+}
+.review-document-row__filename {
+  font-size: 0.85rem !important;
+}
 .review-fee-row {
   align-items: center;
   border-bottom: 1px dashed #dfe2e8;
@@ -846,6 +857,13 @@
   gap: 16px;
   justify-content: space-between;
   padding: 12px 0;
+}
+.review-fee-row > span {
+  font-size: .94rem !important;
+}
+.review-fee-row--late > span,
+.review-fee-row--late > strong {
+  color: #B42318 !important;
 }
 .review-fee-row:first-of-type {
   padding-top: 0;
@@ -859,6 +877,9 @@
 .renewal-progress-card {
   background: #2c3678;
 }
+.renewal-progress-card :deep(*) {
+  font-weight: 400 !important;
+}
 .renewal-progress-card :deep(.v-progress-linear__background) {
   opacity: 0.28;
 }
@@ -871,20 +892,23 @@
   align-items: center;
   color: #7c8190;
   display: flex;
-  font-size: 0.84rem;
+  font-size: 0.95rem !important;
   gap: 8px;
 }
 .review-checklist > div.is-ready {
   color: #26783d;
-  font-weight: 700;
+  font-weight: 400;
 }
 .review-checklist :deep(.v-icon) {
   color: currentColor;
 }
 .review-schedule-card__date {
   color: #202746;
-  font-size: 0.92rem;
+  font-size: 0.95rem !important;
   font-weight: 800;
+}
+.review-schedule-card__change {
+  font-size: 0.95rem !important;
 }
 .review-submit-action {
   max-width: 310px;
@@ -933,8 +957,11 @@
     padding: 12px 8px 10px;
   }
   .renewal-stepper__label {
-    font-size: 0.72rem;
+    font-size: .72rem;
     line-height: 1.2;
+  }
+  .renewal-stepper__step.is-active .renewal-stepper__label {
+    font-size: .72rem;
   }
   .review-info-grid {
     grid-template-columns: 1fr;

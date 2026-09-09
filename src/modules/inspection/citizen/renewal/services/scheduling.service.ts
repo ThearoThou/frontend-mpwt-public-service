@@ -20,11 +20,16 @@ export interface InspectionServiceClosure {
   reasonEn: string
 }
 
+async function listStations (): Promise<InspectionStation[]> {
+  return (await http.get<ApiDataResponse<InspectionStation[]>>('/stations'))
+    .data
+    .data
+}
+
 export const inspectionSchedulingService = {
-  async listStations (): Promise<InspectionStation[]> {
-    return (await http.get<ApiDataResponse<InspectionStation[]>>('/stations'))
-      .data
-      .data
+  listStations,
+  async getStationById (stationId: string): Promise<InspectionStation | null> {
+    return (await listStations()).find(station => station.id === stationId) ?? null
   },
   async listClosures (from: string, to: string): Promise<InspectionServiceClosure[]> {
     return (await http.get<ApiDataResponse<InspectionServiceClosure[]>>('/inspection-calendar/closures', {
