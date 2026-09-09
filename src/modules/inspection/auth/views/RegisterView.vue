@@ -1,20 +1,19 @@
 <script setup lang="ts">
-  import { useI18n } from 'vue-i18n'
   import { useRoute, useRouter } from 'vue-router'
   import InspectionAuthShell from '../components/InspectionAuthShell.vue'
-  import { inspectionAuthService } from '../services/auth.service'
+  import { useInspectionAuthError } from '../composables/useInspectionAuthError'
+  import { useInspectionAuthStore } from '../stores/auth.store'
   import { getEnglishNameIssue, getInspectionAuthError, getInspectionEmailIssue, getKhmerNameIssue, getPasswordConfirmationIssue, getPasswordIssue, isInspectionPhone } from '../utils/auth.utils'
 
   type ErrorKind = 'api' | 'validation'
 
   const route = useRoute()
   const router = useRouter()
-  const { t } = useI18n()
+  const authStore = useInspectionAuthStore()
   const form = reactive({ nameKh: '', nameEn: '', phone: '', email: '', password: '', passwordConfirmation: '' })
   const showPassword = ref(false)
   const loading = ref(false)
-  const errorMessage = ref('')
-  const errorKind = ref<ErrorKind | null>(null)
+  const { clearError, errorKind, errorMessage, showError } = useInspectionAuthError<ErrorKind>()
   let clearingSubmittedPasswords = false
 
   watch(
@@ -41,25 +40,15 @@
     const passwordIssue = getPasswordIssue(form.password)
     const passwordConfirmationIssue = getPasswordConfirmationIssue(form.password, form.passwordConfirmation)
 
-    if (nameKhIssue) issues.push(t(nameKhIssue))
-    if (nameEnIssue) issues.push(t(nameEnIssue))
-    if (!form.phone) issues.push(t('inspection_phone'))
-    if (form.phone && !isInspectionPhone(form.phone)) issues.push(t('inspection_phone_invalid'))
-    if (emailIssue) issues.push(t(emailIssue))
-    if (passwordIssue) issues.push(t(passwordIssue))
-    if (passwordConfirmationIssue) issues.push(t(passwordConfirmationIssue))
+    if (nameKhIssue) issues.push(nameKhIssue)
+    if (nameEnIssue) issues.push(nameEnIssue)
+    if (!form.phone) issues.push('inspection_phone')
+    if (form.phone && !isInspectionPhone(form.phone)) issues.push('inspection_phone_invalid')
+    if (emailIssue) issues.push(emailIssue)
+    if (passwordIssue) issues.push(passwordIssue)
+    if (passwordConfirmationIssue) issues.push(passwordConfirmationIssue)
 
     return issues
-  }
-
-  function clearError () {
-    errorMessage.value = ''
-    errorKind.value = null
-  }
-
-  function showError (kind: ErrorKind, message: string) {
-    errorMessage.value = message
-    errorKind.value = kind
   }
 
   async function register () {
@@ -67,7 +56,7 @@
 
     const issues = getRegistrationIssues()
     if (issues.length > 0) {
-      showError('validation', t('inspection_validation_error', { fields: issues.join(', ') }))
+      showError('validation', 'inspection_validation_error', issues)
       return
     }
 
@@ -75,20 +64,20 @@
     clearError()
     try {
       const identifier = form.phone || form.email
-      await inspectionAuthService.register({
+      await authStore.register({
         nameKh: form.nameKh,
         nameEn: form.nameEn || null,
         phone: form.phone || undefined,
         email: form.email || undefined,
         verificationIdentifier: identifier,
         password: form.password,
-      })
+      }, identifier)
       await router.push({
         path: '/services/inspection/verify',
         query: { identifier, redirect: route.query.redirect, requested: 'true' },
       })
     } catch (error) {
-      showError('api', t(getInspectionAuthError(error, 'inspection_register_error')))
+      showError('api', getInspectionAuthError(error, 'inspection_register_error'))
     } finally {
       clearingSubmittedPasswords = true
       form.password = ''
@@ -141,7 +130,7 @@
       </v-btn>
     </v-form>
 
-    <p class="text-center mt-6 mb-0">
+    <p class="auth-account-prompt text-center mt-6 mb-0">
       {{ $t('inspection_have_account') }}
       <router-link :to="{ path: '/services/inspection/login', query: { redirect: route.query.redirect } }">
         {{ $t('inspection_sign_in') }}
@@ -157,7 +146,7 @@
 
   .inspection-required-mark {
     color: #d32f2f;
-    font-size: 1em;
+    font-size: .9rem;
     font-weight: 500;
     line-height: 0;
   }

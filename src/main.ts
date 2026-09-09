@@ -8,13 +8,14 @@
 import { createApp } from 'vue'
 // import { useKeycloak } from '@/composables/useKeycloak'
 
+import { useInspectionAuthStore } from '@/modules/inspection/auth/stores/auth.store'
 // Plugins
 import { registerPlugins } from '@/plugins'
-
 import { useAuthStore } from '@/stores/auth.ts'
 // Components
 import App from './App.vue'
 // Styles
+import './styles/fonts.css'
 import 'unfonts.css'
 
 const app = createApp(App)
@@ -33,7 +34,15 @@ const app = createApp(App)
 registerPlugins(app)
 
 const authStore = useAuthStore()
-authStore.initializeAuth().then(() => {
+const inspectionAuthStore = useInspectionAuthStore()
+
+Promise.all([
+  authStore.initializeAuth(),
+  // The dashboard is intentionally public, so its route guard does not run an
+  // inspection-session restore. Restore at startup instead to keep a signed-in
+  // citizen signed in when the browser reloads any inspection page.
+  inspectionAuthStore.restoreSession(),
+]).then(() => {
   app.mount('#app')
 })
 

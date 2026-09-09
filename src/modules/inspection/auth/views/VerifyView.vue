@@ -1,24 +1,26 @@
 <script setup lang="ts">
-  import { useI18n } from 'vue-i18n'
   import { useRoute, useRouter } from 'vue-router'
   import InspectionAuthShell from '../components/InspectionAuthShell.vue'
+  import VerificationCodeExpiry from '../components/VerificationCodeExpiry.vue'
+  import { useInspectionAuthError } from '../composables/useInspectionAuthError'
   import { inspectionAuthService } from '../services/auth.service'
   import { useInspectionAuthStore } from '../stores/auth.store'
-  import { getInspectionAuthError, getInspectionIdentifierIssue, getVerificationCodeIssue, inspectionRedirectOrDashboard } from '../utils/auth.utils'
+  import { getInspectionAuthError, getInspectionAuthErrorCode, getInspectionIdentifierIssue, getVerificationCodeIssue, inspectionRedirectOrDashboard } from '../utils/auth.utils'
 
   type ErrorKind = 'api' | 'identifier' | 'validation'
 
   const route = useRoute()
   const router = useRouter()
-  const { t } = useI18n()
   const authStore = useInspectionAuthStore()
-  const identifier = ref(typeof route.query.identifier === 'string' ? route.query.identifier : '')
+  const identifier = computed(() => authStore.registrationVerification?.identifier
+    ?? (typeof route.query.identifier === 'string' ? route.query.identifier : ''))
   const code = ref('')
   const loading = ref(false)
   const resendLoading = ref(false)
-  const errorMessage = ref('')
-  const errorKind = ref<ErrorKind | null>(null)
-  const successMessage = ref(route.query.requested === 'true' ? t('inspection_verification_code_sent') : '')
+  const { clearError, errorKind, errorMessage, showError } = useInspectionAuthError<ErrorKind>()
+  const expiresAt = computed(() => authStore.registrationVerification?.identifier === identifier.value
+    ? authStore.registrationVerification.expiresAt
+    : null)
   let clearingSubmittedCode = false
 
   watch(identifier, () => {
@@ -46,20 +48,10 @@
     const identifierIssue = getInspectionIdentifierIssue(identifier.value)
     const codeIssue = getVerificationCodeIssue(code.value)
 
-    if (identifierIssue) issues.push(t(identifierIssue))
-    if (codeIssue) issues.push(t(codeIssue))
+    if (identifierIssue) issues.push(identifierIssue)
+    if (codeIssue) issues.push(codeIssue)
 
     return issues
-  }
-
-  function clearError () {
-    errorMessage.value = ''
-    errorKind.value = null
-  }
-
-  function showError (kind: ErrorKind, message: string) {
-    errorMessage.value = message
-    errorKind.value = kind
   }
 
   async function verify () {
@@ -67,7 +59,7 @@
 
     const issues = getVerificationIssues()
     if (issues.length > 0) {
-      showError('validation', t('inspection_validation_error', { fields: issues.join(', ') }))
+      showError('validation', 'inspection_validation_error', issues)
       return
     }
 
@@ -77,13 +69,19 @@
       await authStore.applySession(await inspectionAuthService.verifyAccount({ identifier: identifier.value, code: code.value }))
       if (!authStore.isCitizen) {
         await authStore.logout()
-        showError('identifier', t('inspection_error_citizen_only'))
+        showError('identifier', 'inspection_error_citizen_only')
         return
       }
 
+      authStore.clearRegistrationVerification()
       await router.push(inspectionRedirectOrDashboard(route.query.redirect))
     } catch (error) {
-      showError('api', t(getInspectionAuthError(error, 'inspection_verify_error')))
+      const timerAlreadyShowsExpiry = expiresAt.value !== null && expiresAt.value <= Date.now()
+      if (getInspectionAuthErrorCode(error) === 'AUTH_VERIFICATION_CODE_EXPIRED' && timerAlreadyShowsExpiry) {
+        clearError()
+      } else {
+        showError('api', getInspectionAuthError(error, 'inspection_verify_error'))
+      }
     } finally {
       clearingSubmittedCode = true
       code.value = ''
@@ -98,17 +96,17 @@
 
     const identifierIssue = getInspectionIdentifierIssue(identifier.value)
     if (identifierIssue) {
-      showError('validation', t('inspection_validation_error', { fields: t(identifierIssue) }))
+      showError('validation', 'inspection_validation_error', [identifierIssue])
       return
     }
 
     resendLoading.value = true
     clearError()
     try {
-      await inspectionAuthService.resendVerification(identifier.value)
-      successMessage.value = t('inspection_resend_success')
+      await authStore.resendRegistrationVerification(identifier.value)
+      code.value = ''
     } catch (error) {
-      showError('identifier', t(getInspectionAuthError(error, 'inspection_resend_error')))
+      showError('identifier', getInspectionAuthError(error, 'inspection_resend_error'))
     } finally {
       resendLoading.value = false
     }
@@ -118,22 +116,20 @@
 <template>
   <!-- eslint-disable vue/max-attributes-per-line, vue/padding-line-between-tags -->
   <InspectionAuthShell compact :description="$t('inspection_verify_description')" :title="$t('inspection_verify_account')">
-    <v-alert v-if="successMessage" class="mb-3" density="compact" type="success">
-      {{ successMessage }}
-    </v-alert>
-
     <v-alert v-if="errorMessage" class="mb-5" density="compact" type="error">
       {{ errorMessage }}
     </v-alert>
 
     <v-form @submit.prevent="verify">
       <v-text-field
-        v-model.trim="identifier"
         autocomplete="username"
         :label="$t('inspection_identifier')"
+        :model-value="identifier"
         prepend-inner-icon="mdi-account-outline"
+        readonly
       />
-      <v-otp-input v-model="code" class="mb-5" :length="6" :loading="loading" variant="outlined" />
+      <v-otp-input v-model="code" class="mb-2" :length="6" :loading="loading" variant="outlined" />
+      <VerificationCodeExpiry :expires-at="expiresAt" />
       <v-btn block color="primary" :disabled="loading" :loading="loading" size="large" type="submit">
         {{ $t('inspection_verify') }}
       </v-btn>
@@ -144,9 +140,9 @@
         {{ $t('inspection_resend_code') }}
       </v-btn>
     </div>
-    <p class="text-center mt-2 mb-0">
-      <router-link :to="{ path: '/services/inspection/login', query: { redirect: route.query.redirect } }">
-        {{ $t('inspection_back_to_login') }}
+    <p class="auth-account-prompt text-center mt-2 mb-0">
+      <router-link :to="{ path: '/services/inspection/register', query: { redirect: route.query.redirect } }">
+        {{ $t('inspection_back_to_register') }}
       </router-link>
     </p>
   </InspectionAuthShell>

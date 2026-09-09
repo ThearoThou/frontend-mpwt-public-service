@@ -61,7 +61,8 @@ export interface VerifyAccountInput {
 
 export interface PasswordResetVerifyInput extends VerifyAccountInput {}
 
-export interface PasswordResetConfirmInput extends PasswordResetVerifyInput {
+export interface PasswordResetConfirmInput {
+  resetToken: string
   newPassword: string
 }
 
@@ -69,6 +70,23 @@ export interface RegistrationResponse {
   message: string
   verificationRequired: boolean
   destinationHint: string | null
+  development?: {
+    developmentCode: string
+    purpose: 'REGISTER_ACCOUNT' | 'RESET_PASSWORD' | 'CHANGE_PHONE'
+  }
+}
+
+export interface RegistrationVerificationResponse extends RegistrationResponse {
+  expiresInSeconds: number
+}
+
+export interface PasswordResetRequestResponse extends RegistrationResponse {
+  expiresInSeconds: number
+}
+
+export interface PasswordResetVerifyResponse {
+  resetToken: string
+  expiresInSeconds: number
 }
 
 export interface CitizenProfileUpdateInput {

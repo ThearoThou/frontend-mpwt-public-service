@@ -91,23 +91,31 @@ export function getPasswordConfirmationIssue (password: string, confirmation: st
 }
 
 export function getInspectionAuthError (error: unknown, fallback: string): string {
-  if (!isAxiosError<ApiErrorResponse>(error)) {
+  const errorCode = getInspectionAuthErrorCode(error)
+  if (errorCode === undefined) {
     return fallback
   }
-  const data = error.response?.data
   const messages: Record<string, string> = {
     AUTH_INVALID_CREDENTIALS: 'inspection_error_invalid_credentials',
-    AUTH_ACCOUNT_DISABLED: 'inspection_error_account_disabled',
+    AUTH_ACCOUNT_NOT_ACTIVE: 'inspection_error_invalid_credentials',
+    AUTH_ACCOUNT_DISABLED: 'inspection_error_invalid_credentials',
     AUTH_VERIFICATION_CODE_INVALID: 'inspection_error_invalid_code',
     AUTH_VERIFICATION_CODE_EXPIRED: 'inspection_error_expired_code',
     AUTH_VERIFICATION_ATTEMPTS_EXCEEDED: 'inspection_error_too_many_attempts',
+    RESET_TOKEN_INVALID: 'inspection_error_invalid_reset_authorization',
+    RESET_TOKEN_EXPIRED: 'inspection_reset_authorization_expired',
+    RESET_TOKEN_USED: 'inspection_error_used_reset_authorization',
     USER_IDENTIFIER_CONFLICT: 'inspection_error_identifier_conflict',
     CONFLICT: 'inspection_error_registration_conflict',
   }
-  if (data?.code && messages[data.code]) {
-    return messages[data.code]
+  if (messages[errorCode]) {
+    return messages[errorCode]
   }
   return fallback
+}
+
+export function getInspectionAuthErrorCode (error: unknown): string | undefined {
+  return isAxiosError<ApiErrorResponse>(error) ? error.response?.data?.code : undefined
 }
 
 export function isSafeInspectionRedirect (redirect: unknown): redirect is string {

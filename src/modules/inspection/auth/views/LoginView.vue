@@ -2,6 +2,7 @@
   import { useI18n } from 'vue-i18n'
   import { useRoute, useRouter } from 'vue-router'
   import InspectionAuthShell from '../components/InspectionAuthShell.vue'
+  import { useInspectionAuthError } from '../composables/useInspectionAuthError'
   import { useInspectionAuthStore } from '../stores/auth.store'
   import { getInspectionAuthError, getInspectionIdentifierIssue, getPasswordIssue, inspectionRedirectOrDashboard } from '../utils/auth.utils'
 
@@ -16,9 +17,9 @@
   const password = ref('')
   const showPassword = ref(false)
   const loading = ref(false)
-  const errorMessage = ref('')
-  const errorKind = ref<ErrorKind | null>(null)
-  const resetSuccessMessage = ref('')
+  const { clearError, errorKind, errorMessage, showError } = useInspectionAuthError<ErrorKind>()
+  const showResetSuccess = ref(false)
+  const resetSuccessMessage = computed(() => showResetSuccess.value ? t('inspection_reset_success') : '')
   let resetSuccessTimer: ReturnType<typeof setTimeout> | undefined
   let clearingSubmittedPassword = false
 
@@ -38,7 +39,7 @@
   onMounted(() => {
     if (route.query.reset !== 'true') return
 
-    resetSuccessMessage.value = t('inspection_reset_success')
+    showResetSuccess.value = true
     void removeResetQueryFlag()
     resetSuccessTimer = setTimeout(clearResetSuccess, RESET_SUCCESS_DURATION_MS)
   })
@@ -52,24 +53,14 @@
     const identifierIssue = getInspectionIdentifierIssue(identifier.value)
     const passwordIssue = getPasswordIssue(password.value)
 
-    if (identifierIssue) issues.push(t(identifierIssue))
-    if (passwordIssue) issues.push(t(passwordIssue))
+    if (identifierIssue) issues.push(identifierIssue)
+    if (passwordIssue) issues.push(passwordIssue)
 
     return issues
   }
 
-  function clearError () {
-    errorMessage.value = ''
-    errorKind.value = null
-  }
-
-  function showError (kind: ErrorKind, message: string) {
-    errorMessage.value = message
-    errorKind.value = kind
-  }
-
   function clearResetSuccess () {
-    resetSuccessMessage.value = ''
+    showResetSuccess.value = false
     if (resetSuccessTimer !== undefined) clearTimeout(resetSuccessTimer)
     resetSuccessTimer = undefined
   }
@@ -86,7 +77,7 @@
 
     const issues = getLoginIssues()
     if (issues.length > 0) {
-      showError('validation', t('inspection_validation_error', { fields: issues.join(', ') }))
+      showError('validation', 'inspection_validation_error', issues)
       return
     }
 
@@ -96,13 +87,13 @@
       await authStore.login({ identifier: identifier.value, password: password.value })
       if (!authStore.isCitizen) {
         await authStore.logout()
-        showError('api', t('inspection_error_citizen_only'))
+        showError('api', 'inspection_error_citizen_only')
         return
       }
 
       await router.push(inspectionRedirectOrDashboard(route.query.redirect))
     } catch (error) {
-      showError('api', t(getInspectionAuthError(error, 'inspection_login_error')))
+      showError('api', getInspectionAuthError(error, 'inspection_login_error'))
     } finally {
       clearingSubmittedPassword = true
       password.value = ''
@@ -115,7 +106,7 @@
 
 <template>
   <!-- eslint-disable vue/max-attributes-per-line, vue/padding-line-between-tags -->
-  <InspectionAuthShell compact :description="$t('inspection_login_description')" :title="$t('inspection_sign_in')">
+  <InspectionAuthShell compact :description="$t('inspection_login_description')" single-line-description :title="$t('inspection_sign_in')">
     <v-alert v-if="resetSuccessMessage" class="mb-5" density="comfortable" type="success">
       {{ resetSuccessMessage }}
     </v-alert>
@@ -143,6 +134,7 @@
       />
       <div class="d-flex justify-end mb-6">
         <v-btn
+          class="auth-forgot-password"
           color="primary"
           :disabled="loading"
           :to="{ path: '/services/inspection/forgot-password', query: { redirect: route.query.redirect } }"
@@ -151,12 +143,12 @@
           {{ $t('inspection_forgot_password') }}
         </v-btn>
       </div>
-      <v-btn block color="primary" :disabled="loading" :loading="loading" size="large" type="submit">
+      <v-btn block class="auth-login-submit" color="primary" :disabled="loading" :loading="loading" size="large" type="submit">
         {{ $t('inspection_sign_in') }}
       </v-btn>
     </v-form>
 
-    <p class="text-center mt-6 mb-0">
+    <p class="auth-account-prompt text-center mt-6 mb-0">
       {{ $t('inspection_no_account') }}
       <router-link :to="{ path: '/services/inspection/register', query: { redirect: route.query.redirect } }">
         {{ $t('inspection_register') }}
@@ -164,3 +156,8 @@
     </p>
   </InspectionAuthShell>
 </template>
+
+<style scoped>
+  .auth-forgot-password { font-size: .85rem !important; }
+  .auth-login-submit { font-weight: 400 !important; }
+</style>

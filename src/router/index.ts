@@ -21,6 +21,10 @@ const router = createRouter({
 })
 
 router.beforeEach(async (to: RouteLocationNormalized) => {
+  if (to.path === '/' || to.path === '/services/inspection') {
+    return '/services/inspection/login'
+  }
+
   const inspectionAuth = useInspectionAuthStore(pinia)
 
   if (to.meta.inspectionAuthPage) {

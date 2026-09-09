@@ -1,8 +1,7 @@
 <script setup lang="ts">
-  import { useI18n } from 'vue-i18n'
   import { useRoute, useRouter } from 'vue-router'
   import InspectionAuthShell from '../components/InspectionAuthShell.vue'
-  import { inspectionAuthService } from '../services/auth.service'
+  import { useInspectionAuthError } from '../composables/useInspectionAuthError'
   import { useInspectionAuthStore } from '../stores/auth.store'
   import { getInspectionAuthError, getInspectionIdentifierIssue } from '../utils/auth.utils'
 
@@ -10,12 +9,10 @@
 
   const route = useRoute()
   const router = useRouter()
-  const { t } = useI18n()
   const authStore = useInspectionAuthStore()
   const identifier = ref('')
   const loading = ref(false)
-  const errorMessage = ref('')
-  const errorKind = ref<ErrorKind | null>(null)
+  const { clearError, errorKind, errorMessage, showError } = useInspectionAuthError<ErrorKind>()
 
   watch(identifier, () => {
     if (errorKind.value === 'api') {
@@ -28,22 +25,12 @@
     }
   })
 
-  function clearError () {
-    errorMessage.value = ''
-    errorKind.value = null
-  }
-
-  function showError (kind: ErrorKind, message: string) {
-    errorMessage.value = message
-    errorKind.value = kind
-  }
-
   async function requestReset () {
     if (loading.value) return
 
     const identifierIssue = getInspectionIdentifierIssue(identifier.value)
     if (identifierIssue) {
-      showError('validation', t('inspection_validation_error', { fields: t(identifierIssue) }))
+      showError('validation', 'inspection_validation_error', [identifierIssue])
       return
     }
 
@@ -51,9 +38,9 @@
     clearError()
     try {
       authStore.clearPasswordResetVerification()
-      await inspectionAuthService.requestPasswordReset(identifier.value)
+      await authStore.requestPasswordReset(identifier.value)
     } catch (error) {
-      showError('api', t(getInspectionAuthError(error, 'inspection_forgot_error')))
+      showError('api', getInspectionAuthError(error, 'inspection_forgot_error'))
       return
     } finally {
       loading.value = false
@@ -85,7 +72,7 @@
       </v-btn>
     </v-form>
 
-    <p class="text-center mt-6 mb-0">
+    <p class="auth-account-prompt text-center mt-6 mb-0">
       <router-link :to="{ path: '/services/inspection/login', query: { redirect: route.query.redirect } }">
         {{ $t('inspection_back_to_login') }}
       </router-link>
