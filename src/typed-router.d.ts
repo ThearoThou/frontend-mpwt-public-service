@@ -38,6 +38,7 @@ declare module 'vue-router/auto-routes' {
     '/services/inspection/forgot-password': RouteRecordInfo<'/services/inspection/forgot-password', '/services/inspection/forgot-password', Record<never, never>, Record<never, never>>,
     '/services/inspection/inspection-history': RouteRecordInfo<'/services/inspection/inspection-history', '/services/inspection/inspection-history', Record<never, never>, Record<never, never>>,
     '/services/inspection/login': RouteRecordInfo<'/services/inspection/login', '/services/inspection/login', Record<never, never>, Record<never, never>>,
+    '/services/inspection/notifications': RouteRecordInfo<'/services/inspection/notifications', '/services/inspection/notifications', Record<never, never>, Record<never, never>>,
     '/services/inspection/profile': RouteRecordInfo<'/services/inspection/profile', '/services/inspection/profile', Record<never, never>, Record<never, never>>,
     '/services/inspection/register': RouteRecordInfo<'/services/inspection/register', '/services/inspection/register', Record<never, never>, Record<never, never>>,
     '/services/inspection/renewal/': RouteRecordInfo<'/services/inspection/renewal/', '/services/inspection/renewal', Record<never, never>, Record<never, never>>,
