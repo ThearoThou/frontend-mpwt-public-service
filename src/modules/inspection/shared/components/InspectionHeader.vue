@@ -13,6 +13,8 @@
     return displayCitizenName(profile, locale.value, authStore.currentUser?.user.email || authStore.currentUser?.user.phone || '')
   })
   async function signOut () {
+    if (authStore.logoutInProgress) return
+
     await authStore.logout()
     await router.push('/services/inspection')
   }
@@ -20,13 +22,19 @@
 </script>
 
 <template>
-  <v-app-bar border color="surface" elevation="0" height="76">
+  <v-app-bar
+    border
+    class="inspection-header"
+    color="surface"
+    elevation="0"
+    height="76"
+  >
     <v-btn class="d-md-none" icon="mdi-menu" @click="emit('toggle-navigation')" />
     <v-app-bar-title class="inspection-header-title">{{ $t('inspection_service_title') }}</v-app-bar-title>
 
     <div class="inspection-header-actions">
-      <v-btn aria-label="Notifications" icon="mdi-bell-outline" to="/services/inspection/inspection-history" />
-      <LanguageSwitcher />
+      <v-btn aria-label="Notifications" icon="mdi-bell-outline" to="/services/inspection/notifications" />
+      <LanguageSwitcher display="flags" />
       <v-btn aria-label="Theme" icon="mdi-weather-night" />
 
       <v-menu>
@@ -41,7 +49,12 @@
         <v-list density="compact">
           <v-list-item prepend-icon="mdi-account-cog-outline" :title="$t('inspection_profile_settings')" to="/services/inspection/profile" />
           <v-divider />
-          <v-list-item prepend-icon="mdi-logout" :title="$t('logout')" @click="signOut" />
+
+          <v-list-item :disabled="authStore.logoutInProgress" prepend-icon="mdi-logout" :title="$t('logout')" @click="signOut">
+            <template v-if="authStore.logoutInProgress" #append>
+              <v-progress-circular indeterminate size="18" width="2" />
+            </template>
+          </v-list-item>
         </v-list>
       </v-menu>
     </div>
@@ -49,14 +62,24 @@
 </template>
 
 <style scoped>
+  .inspection-header {
+    position: fixed !important;
+  }
+
   .inspection-header-title {
     color: #10172d;
+    font-family: 'Siemreap', sans-serif !important;
     font-size: clamp(1rem, 1.3vw, 1.4rem);
-    font-weight: 700;
-    line-height: 1.25;
-    overflow: visible;
-    text-overflow: clip;
+    font-weight: 600 !important;
+    line-height: 1.5;
+    overflow: visible !important;
+    text-overflow: clip !important;
     white-space: nowrap;
+  }
+
+  .inspection-header-title :deep(.v-toolbar-title__placeholder) {
+    overflow: visible !important;
+    text-overflow: clip !important;
   }
 
   .inspection-header-actions {

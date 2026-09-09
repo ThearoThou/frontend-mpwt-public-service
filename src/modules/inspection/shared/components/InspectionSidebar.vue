@@ -17,10 +17,10 @@
   ])
 
   async function leaveService () {
+    if (authStore.logoutInProgress) return
+
     if (authStore.isAuthenticated) {
       await authStore.logout()
-      await router.push('/services/inspection')
-      return
     }
 
     await router.push('/services/inspection')
@@ -38,7 +38,7 @@
   >
     <div class="sidebar-brand pa-5 pt-6">
       <v-img alt="MPWT" class="sidebar-logo mx-auto" :src="ministryLogo" />
-      <div class="sidebar-ministry mt-5">ក្រសួងសាធារណការ<br>និង ដឹកជញ្ជូន</div>
+      <div class="sidebar-ministry mt-5">ក្រសួងសាធារណការ<br>និងដឹកជញ្ជូន</div>
       <div class="sidebar-ministry-subtitle mt-2">MINISTRY OF PUBLIC WORKS<br>AND TRANSPORT</div>
     </div>
 
@@ -53,36 +53,34 @@
         :title="$t(item.title)"
         :to="item.to"
       />
-    </v-list>
 
-    <template #append>
-      <div class="pa-4 pb-7">
-        <v-btn
-          block
-          class="sidebar-leave-action justify-start"
-          :prepend-icon="authStore.isAuthenticated ? 'mdi-logout' : 'mdi-exit-to-app'"
-          variant="text"
-          @click="leaveService"
-        >
-          {{ authStore.isAuthenticated ? $t('logout') : $t('inspection_exit') }}
-        </v-btn>
-      </div>
-    </template>
+      <v-list-item
+        class="sidebar-navigation-item sidebar-leave-action mb-3"
+        :disabled="authStore.logoutInProgress"
+        :prepend-icon="authStore.isAuthenticated ? 'mdi-logout' : 'mdi-exit-to-app'"
+        :title="authStore.isAuthenticated ? $t('logout') : $t('inspection_exit')"
+        @click="leaveService"
+      >
+        <template v-if="authStore.logoutInProgress" #append>
+          <v-progress-circular indeterminate size="18" width="2" />
+        </template>
+      </v-list-item>
+    </v-list>
   </v-navigation-drawer>
 </template>
 
 <style scoped>
-  .inspection-sidebar { color: white; }
+  .inspection-sidebar { color: white; position: fixed !important; }
   .inspection-sidebar :deep(.v-navigation-drawer__content) { display: flex; flex-direction: column; min-height: 0; }
   .inspection-sidebar :deep(.v-navigation-drawer__append) { background: #2a3472; border-top: 1px solid rgba(255, 255, 255, .2); flex: 0 0 auto; }
-  .sidebar-brand { text-align: center; }
+  .sidebar-brand { padding-bottom: 8px !important; text-align: center; }
   .sidebar-logo { width: 64px; max-height: 64px; }
-  .sidebar-ministry { color: white; font-size: 1.35rem; font-weight: 700; line-height: 1.25; }
-  .sidebar-ministry-subtitle { color: white; font-size: .75rem; font-weight: 700; letter-spacing: .03em; line-height: 1.7; margin-inline: auto; max-width: 180px; text-align: center; }
+  .sidebar-ministry { color: white; font-family: 'Moul', 'Siemreap', sans-serif !important; font-size: 1.05rem; font-weight: 400 !important; line-height: 1.7; }
+  .sidebar-ministry-subtitle { color: white; font-size: .75rem; font-weight: 400 !important; letter-spacing: .02em; line-height: 1.7; margin-inline: auto; max-width: none; text-align: center; white-space: nowrap; }
   .sidebar-navigation { flex: 1 1 auto; overflow-y: auto; }
-  .sidebar-navigation :deep(.v-list-item) { min-height: 52px; border-radius: 10px; font-size: .94rem; font-weight: 700; }
+  .sidebar-navigation :deep(.v-list-item) { min-height: 68px; border-radius: 10px; font-weight: 700; overflow: visible; }
+  .sidebar-navigation :deep(.v-list-item-title) { font-size: .82rem; line-height: 1.7; overflow: visible; text-overflow: clip; }
   .sidebar-navigation :deep(.v-list-item--active) { background: #8698ca; }
-  .sidebar-navigation :deep(.v-list-item__prepend > .v-icon) { margin-inline-end: 14px; opacity: 1; }
-  .sidebar-leave-action { color: #ffd8d2; font-weight: 700; }
-  .sidebar-leave-action :deep(.v-btn__prepend) { margin-inline-end: 20px; }
+  .sidebar-navigation :deep(.v-list-item__prepend > .v-icon) { font-size: 24px !important; margin-inline-end: 14px; opacity: 1; }
+  .sidebar-leave-action, .sidebar-leave-action :deep(.v-icon), .sidebar-leave-action :deep(.v-list-item-title) { color: #ff9b9b !important; font-weight: 700; }
 </style>

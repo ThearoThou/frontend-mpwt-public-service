@@ -8,12 +8,10 @@
 // @use 'vuetify/settings' with (
 //   $color-pack: false
 // );
-@import url('https://fonts.googleapis.com/css2?family=Kantumruy+Pro:ital,wght@0,100..700;1,100..700&family=Moul&display=swap');
-
-$font-family-base: 'Kantumruy Pro', sans-serif;
-$font-family-heading: 'Moul', serif;
+$font-family-base: 'Siemreap', sans-serif;
+$font-family-heading: 'Siemreap', sans-serif;
 $body-font-size: 16px;
-$heading-font-weight: 700;
+$heading-font-weight: 400;
 $border-radius-base: 8px;
 $btn-border-radius: $border-radius-base;
 $input-border-radius: $border-radius-base;
@@ -24,8 +22,16 @@ $badge-border-radius: $border-radius-base;
 // default font family for vuetify components
 $body-font-family: $font-family-base !default;
 $heading-font-family: $font-family-heading !default;
-*{
+* {
+    font-weight: 400 !important;
+}
+
+*:not(:where([data-pdf-document], [data-pdf-document] *)) {
     font-family: $font-family-base !important;
+}
+
+:where([data-pdf-document], [data-pdf-document] *) {
+    font-family: 'Siemreap', 'Battambang', 'Kantumruy Pro', sans-serif !important;
 }
 
 .v-application.v-theme--dark {

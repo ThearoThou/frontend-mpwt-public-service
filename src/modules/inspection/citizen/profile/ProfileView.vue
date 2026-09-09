@@ -44,7 +44,7 @@
 </script>
 
 <template>
-  <section class="inspection-profile-view">
+  <section class="citizen-auth-type-scale inspection-profile-view">
     <header>
       <h1>{{ $t('inspection_profile_settings') }}</h1>
       <p>{{ $t('inspection_profile_description') }}</p>
@@ -82,8 +82,9 @@
 </template>
 
 <style scoped>
+  .inspection-profile-view :deep(*) { font-weight: 400 !important; }
   .inspection-profile-view { max-width: 640px; padding-bottom: 24px; }
-  .inspection-profile-view h1 { color: #10172d; font-size: clamp(1.45rem, 2.25vw, 1.9rem); font-weight: 800; line-height: 1.2; }
+  .inspection-profile-view h1 { color: #10172d; font-size: clamp(1.35rem, 2vw, 1.72rem); font-weight: 400 !important; line-height: 1.2; }
   .inspection-profile-view header p { color: #656776; font-size: .91rem; margin-top: 5px; }
   .inspection-profile-card { border: 1px solid #d4d5de; border-radius: 16px; box-shadow: 0 6px 16px rgba(31, 36, 69, .05); padding: 22px; }
   .inspection-profile-card :deep(.v-text-field + .v-text-field) { margin-top: 8px; }
