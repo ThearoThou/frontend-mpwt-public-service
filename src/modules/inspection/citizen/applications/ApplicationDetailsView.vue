@@ -14,6 +14,7 @@
   import { getVehicleTypeIcon } from '../vehicles/utils/vehicle-type-icon'
   import ApplicationPaymentTab from './components/ApplicationPaymentTab.vue'
   import ApplicationProgressTab from './components/ApplicationProgressTab.vue'
+  import CancelApplicationDialog from './components/CancelApplicationDialog.vue'
   import { inspectionApplicationService } from './services/application.service'
   import { type CitizenApplicationDetailedStatusFacts, resolveCitizenApplicationStatus } from './utils/citizen-application-status'
   import { correctionRejectionReason, isPendingReplacementOfRejectedDocument } from './utils/correction-document'
@@ -56,6 +57,9 @@
   const submittedDocumentsRef = ref<HTMLElement | null>(null)
   const resubmitting = ref(false)
   const renewing = ref(false)
+  const cancellationDialogVisible = ref(false)
+  const cancellationSubmitting = ref(false)
+  const detailedStatusFactsLoading = ref(true)
   const detailedStatusFacts = ref<CitizenApplicationDetailedStatusFacts>({ certificate: null, inspection: null, payment: null, sticker: null, timelineEvents: null })
   const { confirmationLoading, confirmationOpen, confirmRenewal, isRenewingVehicle, startOrContinueRenewal } = useRenewalEntryFlow({
     onApplicationsLoaded: loaded => citizenApplications.value = loaded,
@@ -71,6 +75,11 @@
   })
   const isCorrectionRequired = computed(() => application.value?.status === 'CORRECTION_REQUIRED')
   const isDraft = computed(() => application.value?.status === 'DRAFT')
+  const canCancelApplication = computed(() => {
+    if (application.value?.status === 'DRAFT') return true
+    if (application.value?.status !== 'SUBMITTED' || detailedStatusFactsLoading.value) return false
+    return detailedStatusFacts.value.payment === null || detailedStatusFacts.value.payment.status === 'PENDING'
+  })
   const currentDocuments = computed(() => documents.value.filter(document => document.isCurrent))
   const remainingRejectedDocuments = computed(() => currentDocuments.value.filter(document => document.status === 'REJECTED'))
   const canResubmit = computed(() => isCorrectionRequired.value && currentDocuments.value.length > 0 && remainingRejectedDocuments.value.length === 0)
@@ -326,6 +335,7 @@
   }
 
   async function loadDetailedStatusFacts (id: string) {
+    detailedStatusFactsLoading.value = true
     const results = await Promise.allSettled([
       inspectionApplicationService.listTimelineEvents(id),
       inspectionApplicationService.getInspectionStatus(id),
@@ -342,6 +352,7 @@
       payment: payment.status === 'fulfilled' ? payment.value : null,
       certificate: certificate.status === 'fulfilled' ? certificate.value : null,
     }
+    detailedStatusFactsLoading.value = false
   }
 
   async function retry () {
@@ -494,6 +505,41 @@
     return isAxiosError<ApiErrorResponse>(error) && error.response?.data?.code === 'REQUIRED_DOCUMENTS_NOT_READY' ? 'inspection_application_correction_documents_remaining' : 'inspection_application_correction_resubmit_error'
   }
 
+  function openCancellationDialog () {
+    if (!canCancelApplication.value || cancellationSubmitting.value) return
+    cancellationDialogVisible.value = true
+  }
+
+  function closeCancellationDialog () {
+    if (cancellationSubmitting.value) return
+    cancellationDialogVisible.value = false
+  }
+
+  async function confirmCancellation () {
+    if (!application.value || !canCancelApplication.value || cancellationSubmitting.value) return
+    cancellationSubmitting.value = true
+    pageMessageKey.value = ''
+    try {
+      await inspectionApplicationService.cancel(application.value.id)
+      cancellationDialogVisible.value = false
+      await load()
+      pageMessageType.value = 'success'
+      pageMessageKey.value = 'inspection_application_cancel_success'
+    } catch (error) {
+      if (isAxiosError<ApiErrorResponse>(error) && error.response?.data?.code === 'APPLICATION_CANNOT_CANCEL') {
+        cancellationDialogVisible.value = false
+        await load()
+        pageMessageType.value = 'error'
+        pageMessageKey.value = 'inspection_application_cancel_no_longer_available'
+      } else {
+        pageMessageType.value = 'error'
+        pageMessageKey.value = 'inspection_application_cancel_error'
+      }
+    } finally {
+      cancellationSubmitting.value = false
+    }
+  }
+
   async function renewAgain () {
     if (application.value?.status !== 'EXPIRED' || renewing.value) return
     renewing.value = true
@@ -531,7 +577,7 @@
     <div v-if="initialLoading" class="application-details__loading"><v-progress-circular color="primary" indeterminate /><span>{{ $t('loading') }}</span></div>
     <v-alert v-else-if="loadError" type="error" variant="tonal"><div class="d-flex flex-wrap align-center justify-space-between ga-3"><span>{{ $t('inspection_application_details_load_error') }}</span><v-btn :loading="refreshing" variant="outlined" @click="retry">{{ $t('retry') }}</v-btn></div></v-alert>
     <template v-else-if="application">
-      <header class="application-details__header"><div class="application-details__heading-copy"><h1>{{ $t('inspection_application_details_title') }}</h1><p class="application-details__reference"><span>{{ $t('inspection_application_details_reference') }}:</span>{{ application.referenceNumber ?? '—' }}</p><p v-if="application.transactionNumber" class="application-details__transaction"><span>{{ $t('inspection_history_transaction_number') }}:</span>{{ application.transactionNumber }}</p><div class="application-details__metadata"><span><v-icon icon="mdi-card-text-outline" size="17" />{{ headerPlate }}</span><span><v-icon :icon="headerVehicleIcon" size="17" />{{ headerMakeModel }}</span><span><v-icon icon="mdi-calendar-blank-outline" size="17" />{{ $t('inspection_application_details_submitted') }}: {{ formatDate(application.submittedAt) }}</span></div></div><v-btn v-if="isCorrectionRequired" :aria-label="$t('inspection_application_correction_open_accessible', { status: $t(headerStatus.labelKey) })" :class="['application-details__status', 'application-details__status-action', `application-details__status--${headerStatus.color}`]" :color="headerStatus.color" :prepend-icon="headerStatus.icon" rounded="pill" size="small" variant="tonal" @click="openCorrectionArea()">{{ $t(headerStatus.labelKey) }}</v-btn><v-chip v-else :class="['application-details__status', `application-details__status--${headerStatus.color}`]" :color="headerStatus.color" :prepend-icon="headerStatus.icon" size="small" variant="tonal">{{ $t(headerStatus.labelKey) }}</v-chip></header>
+      <header class="application-details__header"><div class="application-details__heading-copy"><h1>{{ $t('inspection_application_details_title') }}</h1><p class="application-details__reference"><span>{{ $t('inspection_application_details_reference') }}:</span>{{ application.referenceNumber ?? '—' }}</p><p v-if="application.transactionNumber" class="application-details__transaction"><span>{{ $t('inspection_history_transaction_number') }}:</span>{{ application.transactionNumber }}</p><div class="application-details__metadata"><span><v-icon icon="mdi-card-text-outline" size="17" />{{ headerPlate }}</span><span><v-icon :icon="headerVehicleIcon" size="17" />{{ headerMakeModel }}</span><span><v-icon icon="mdi-calendar-blank-outline" size="17" />{{ $t('inspection_application_details_submitted') }}: {{ formatDate(application.submittedAt) }}</span></div></div><div class="application-details__header-actions"><v-btn v-if="isCorrectionRequired" :aria-label="$t('inspection_application_correction_open_accessible', { status: $t(headerStatus.labelKey) })" :class="['application-details__status', 'application-details__status-action', `application-details__status--${headerStatus.color}`]" :color="headerStatus.color" :prepend-icon="headerStatus.icon" rounded="pill" size="small" variant="tonal" @click="openCorrectionArea()">{{ $t(headerStatus.labelKey) }}</v-btn><v-chip v-else :class="['application-details__status', `application-details__status--${headerStatus.color}`]" :color="headerStatus.color" :prepend-icon="headerStatus.icon" size="small" variant="tonal">{{ $t(headerStatus.labelKey) }}</v-chip><v-btn v-if="canCancelApplication" color="error" prepend-icon="mdi-close-circle-outline" variant="outlined" @click="openCancellationDialog">{{ $t('inspection_application_cancel') }}</v-btn></div></header>
       <v-alert v-if="pageMessageKey" class="mb-5" :type="pageMessageType" variant="tonal">{{ $t(pageMessageKey) }}</v-alert>
       <v-alert v-if="application.status === 'EXPIRED'" class="mb-5" icon="mdi-calendar-remove-outline" type="error" variant="tonal"><div class="d-flex flex-wrap align-center justify-space-between ga-3"><div><strong>{{ $t('inspection_application_correction_application_expired') }}</strong><p class="mb-0 mt-1">{{ $t('inspection_application_correction_expired_description') }}</p></div><v-btn color="error" :loading="renewing" variant="outlined" @click="renewAgain">{{ $t('inspection_renewal_renew_again') }}</v-btn></div></v-alert>
       <v-card class="application-details__content" elevation="0">
@@ -555,6 +601,7 @@
         </v-window>
       </v-card>
       <RenewalStartConfirmationDialog v-model="confirmationOpen" :loading="confirmationLoading" @confirm="confirmRenewal" />
+      <CancelApplicationDialog v-model="cancellationDialogVisible" :loading="cancellationSubmitting" @close="closeCancellationDialog" @confirm="confirmCancellation" />
       <v-dialog max-width="1000" :model-value="previewDialogVisible" @update:model-value="updatePreviewDialog"><v-card class="application-document-preview-card"><div class="application-document-preview__header"><p>{{ previewDocument?.originalFileName }}</p><v-btn :aria-label="$t('inspection_document_close_preview')" icon="mdi-close" variant="text" @click="closeDocumentPreview" /></div><div v-if="previewUrl" class="application-document-preview"><iframe v-if="previewIsPdf" class="application-document-preview__pdf" :src="previewUrl" :title="previewDocument?.originalFileName" /><v-img v-else :alt="previewDocument?.originalFileName" class="application-document-preview__image" contain :src="previewUrl" /></div></v-card></v-dialog>
     </template>
   </section>
@@ -570,6 +617,7 @@
   .application-details__header { align-items: flex-start; background: linear-gradient(125deg, #fff 0%, #f8f9ff 66%, #f1f4ff 100%); border: 1px solid #dde3f2; border-left: 4px solid #2a3d80; border-radius: 14px; box-shadow: 0 8px 22px rgba(26, 39, 87, .055); display: flex; gap: 28px; justify-content: space-between; margin: 12px 0 24px; min-height: 0; overflow: hidden; padding: 20px 26px; position: relative; }
   .application-details__header::after { background: radial-gradient(circle, rgba(104, 128, 205, .12), rgba(104, 128, 205, 0) 68%); border-radius: 50%; content: ''; height: 210px; pointer-events: none; position: absolute; right: -70px; top: -105px; width: 210px; }
   .application-details__header > * { position: relative; z-index: 1; }
+  .application-details__header-actions { align-items: flex-end; align-self: stretch; display: flex; flex-direction: column; gap: 12px; justify-content: space-between; }
   .application-details__heading-copy { min-width: 0; }
   .application-details__header h1 { color: #102652; font-size: clamp(1.35rem, 2vw, 1.72rem); font-weight: 400; letter-spacing: -.01em; line-height: 1.2; }
   .application-details__reference { color: #26366d; font-size: .88rem; font-weight: 700; margin: 7px 0 0; overflow-wrap: anywhere; }
@@ -664,6 +712,7 @@
     .application-details__topline { align-items: flex-start; flex-direction: column; gap: 4px; }
     .application-details__back { align-self: flex-end; }
     .application-details__header { flex-direction: column; gap: 14px; min-height: 0; padding: 20px; }
+    .application-details__header-actions { align-items: stretch; align-self: auto; justify-content: flex-start; width: 100%; }
     .application-details__metadata { margin-top: 12px; }
     .application-details__metadata span { width: 100%; }
     .application-details__content :deep(.v-tab) { min-height: 60px; padding-bottom: 7px; }

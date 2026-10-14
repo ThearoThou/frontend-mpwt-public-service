@@ -34,6 +34,7 @@ declare module 'vue-router/auto-routes' {
     '/services/inspection/': RouteRecordInfo<'/services/inspection/', '/services/inspection', Record<never, never>, Record<never, never>>,
     '/services/inspection/applications/': RouteRecordInfo<'/services/inspection/applications/', '/services/inspection/applications', Record<never, never>, Record<never, never>>,
     '/services/inspection/applications/[id]': RouteRecordInfo<'/services/inspection/applications/[id]', '/services/inspection/applications/:id', { id: ParamValue<true> }, { id: ParamValue<false> }>,
+    '/services/inspection/certificate/verify': RouteRecordInfo<'/services/inspection/certificate/verify', '/services/inspection/certificate/verify', Record<never, never>, Record<never, never>>,
     '/services/inspection/dashboard': RouteRecordInfo<'/services/inspection/dashboard', '/services/inspection/dashboard', Record<never, never>, Record<never, never>>,
     '/services/inspection/forgot-password': RouteRecordInfo<'/services/inspection/forgot-password', '/services/inspection/forgot-password', Record<never, never>, Record<never, never>>,
     '/services/inspection/inspection-history': RouteRecordInfo<'/services/inspection/inspection-history', '/services/inspection/inspection-history', Record<never, never>, Record<never, never>, '/services/inspection/inspection-history/' | '/services/inspection/inspection-history/[inspectionId]'>,

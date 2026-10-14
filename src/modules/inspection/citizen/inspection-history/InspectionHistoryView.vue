@@ -382,7 +382,6 @@
   .inspection-history-filter__label { color: #282a33; font-size: .94rem; }
   .history-table-header { font-size: .88rem !important; font-weight: 600 !important; }
   .history-desktop :deep(td), .history-secondary { font-size: .94rem; }
-  .inspection-history-view .history-desktop :deep(td:nth-child(4)),
   .history-reference { color: #2a3472 !important; font-size: .86rem; }
   .history-desktop :deep(.v-chip), .history-mobile :deep(.v-chip) { font-size: .84rem; }
   .history-result-chip--pass { background: #ecfdf3 !important; color: #166534 !important; }

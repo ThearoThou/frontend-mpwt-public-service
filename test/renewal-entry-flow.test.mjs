@@ -126,7 +126,10 @@ test('cancelled progress is an application terminal outcome, not an inspection f
 test('rejected progress is shown at document review after the physical workflow', () => {
   assert.match(progress, /props\.application\.status === 'REJECTED'[\s\S]*index: 4/u)
   assert.match(progress, /state: 'REJECTED'/u)
+  assert.match(progress, /timestamp: latestHistoryTimestamp\('REJECTED'\)/u)
+  assert.doesNotMatch(progress, /latestHistoryTimestamp\('REJECTED'\) \?\? props\.application\.updatedAt/u)
   assert.match(progress, /v-else-if="step\.state === 'REJECTED'" icon="mdi-close-circle-outline"/u)
+  assert.match(progress, /\['CANCELLED', 'REJECTED'\]\.includes\(step\.state\)[\s\S]*<time v-if="step\.timestamp"/u)
 })
 
 test('only a real draft shows Not submitted yet and Continue Renewal', () => {

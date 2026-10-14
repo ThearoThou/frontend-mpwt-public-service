@@ -40,7 +40,7 @@
   .auth-card :deep(.auth-account-prompt) { font-size: .9rem; }
   .auth-card :deep(.v-alert) { font-size: .9rem; }
   .auth-card :deep(.v-btn--variant-text.text-primary) { color: #102565 !important; }
-  .auth-card :deep(a) { color: #4b146f; }
+  .auth-card :deep(a) { color: #2a3472; }
   @media (min-width: 600px) { .auth-card-description--single-line { white-space: nowrap; } }
   .auth-icon { width: 76px; height: 76px; border-radius: 50%; background: #061a4c; color: white; }
   @media (max-width: 600px) { .auth-brand { margin-bottom: 2rem !important; } .auth-logo { margin-top: 32px; } .auth-card { padding: 1.5rem !important; } }

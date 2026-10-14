@@ -38,7 +38,7 @@
     const familyNameKh = form.familyNameKh.trim()
     const givenNameKh = form.givenNameKh.trim()
     const nameEnIssue = getEnglishNameIssue(form.nameEn)
-    const emailIssue = form.email ? getInspectionEmailIssue(form.email) : undefined
+    const emailIssue = getInspectionEmailIssue(form.email)
     const passwordIssue = getPasswordIssue(form.password)
     const passwordConfirmationIssue = getPasswordConfirmationIssue(form.password, form.passwordConfirmation)
 
@@ -74,7 +74,7 @@
     loading.value = true
     clearError()
     try {
-      const identifier = form.phone || form.email
+      const identifier = form.email
       await authStore.register({
         nameKh: combineKhmerName(form.familyNameKh, form.givenNameKh),
         nameEn: form.nameEn || null,
@@ -128,7 +128,9 @@
           </v-text-field>
         </v-col>
         <v-col cols="12">
-          <v-text-field v-model.trim="form.email" autocomplete="email" :label="$t('inspection_email_optional')" maxlength="254" prepend-inner-icon="mdi-email-outline" type="text" variant="outlined" />
+          <v-text-field v-model.trim="form.email" autocomplete="email" class="inspection-required-field" maxlength="254" prepend-inner-icon="mdi-email-outline" required type="email" variant="outlined">
+            <template #label>{{ $t('inspection_email') }} <span class="inspection-required-mark">*</span></template>
+          </v-text-field>
         </v-col>
         <v-col cols="12" sm="6">
           <v-text-field v-model="form.password" :append-inner-icon="showPassword ? 'mdi-eye-off-outline' : 'mdi-eye-outline'" autocomplete="new-password" class="inspection-required-field" maxlength="128" prepend-inner-icon="mdi-lock-outline" required :type="showPassword ? 'text' : 'password'" variant="outlined" @click:append-inner="showPassword = !showPassword">

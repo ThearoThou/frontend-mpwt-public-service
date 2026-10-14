@@ -20,15 +20,21 @@
       return
     }
 
-    if (errorKind.value === 'validation' && getInspectionIdentifierIssue(identifier.value) === undefined) {
+    if (errorKind.value === 'validation' && getResetIdentifierIssue() === undefined) {
       clearError()
     }
   })
 
+  function getResetIdentifierIssue () {
+    const identifierIssue = getInspectionIdentifierIssue(identifier.value)
+    if (identifierIssue) return identifierIssue
+    return identifier.value.includes('@') ? undefined : 'inspection_email_otp_only'
+  }
+
   async function requestReset () {
     if (loading.value) return
 
-    const identifierIssue = getInspectionIdentifierIssue(identifier.value)
+    const identifierIssue = getResetIdentifierIssue()
     if (identifierIssue) {
       showError('validation', 'inspection_validation_error', [identifierIssue])
       return
@@ -59,7 +65,6 @@
     <v-alert v-if="errorMessage" class="mb-5" density="compact" type="error">
       {{ errorMessage }}
     </v-alert>
-
     <v-form @submit.prevent="requestReset">
       <v-text-field
         v-model.trim="identifier"

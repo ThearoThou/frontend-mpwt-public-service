@@ -360,8 +360,9 @@
                 >{{ $t('inspection_application_progress_action_required') }}</button>
               </div>
 
+              <p v-if="step.detail && ['CANCELLED', 'REJECTED'].includes(step.state)" class="application-progress-step__detail">{{ step.detail }}</p>
               <time v-if="step.timestamp" :datetime="step.timestamp">{{ formatTimestamp(step.timestamp) }}</time>
-              <p v-if="step.detail" class="application-progress-step__detail">{{ step.detail }}</p>
+              <p v-if="step.detail && !['CANCELLED', 'REJECTED'].includes(step.state)" class="application-progress-step__detail">{{ step.detail }}</p>
             </div>
           </li>
         </ol>
@@ -399,13 +400,15 @@
   .application-progress-step--completed:not(:last-child)::after { background: #5969ad; }
   .application-progress-step--failed:not(:last-child)::after { background: #e0a3a3; }
   .application-progress-step--cancelled:not(:last-child)::after { background: #9aa1ad; }
-  .application-progress-step--rejected:not(:last-child)::after { background: #e0a3a3; }
+  .application-progress-step--rejected:not(:last-child)::after { background: #9aa1ad; }
   .application-progress-step--unreachable_after_failure:not(:last-child)::after { background: #e2e4e9; }
   .application-progress-step__node { align-items: center; background: #fff; border: 2px solid #bdc8da; border-radius: 50%; box-shadow: none; color: #647087; display: flex; font-size: .85rem; font-weight: 400; height: 34px; justify-content: center; position: relative; width: 34px; z-index: 1; }
   .application-progress-step--completed .application-progress-step__node { background: #3c348d; border-color: #3c348d; box-shadow: none; color: #fff; }
   .application-progress-step--current .application-progress-step__node { background: #fff; border-color: #31539a; box-shadow: none; color: #244689; transform: none; }
   .application-progress-step--pending .application-progress-step__node { background: #fafbfc; border-color: #cbd3df; color: #8b93a3; }
   .application-progress-step--failed .application-progress-step__node { background: #b42318; border-color: #b42318; color: #fff; }
+  .application-progress-step--cancelled .application-progress-step__node { background: #fff0f0; border-color: #d92d20; color: #b42318; }
+  .application-progress-step--rejected .application-progress-step__node { background: #fff0f0; border-color: #d92d20; color: #b42318; }
   .application-progress-step--action-required .application-progress-step__node { background: #fff7f7; border-color: #b42318; box-shadow: 0 0 0 4px rgba(180, 35, 24, .1); color: #b42318; }
   .application-progress-step__node-button { cursor: pointer; font-family: inherit; padding: 0; }
   .application-progress-step__node-button:hover { background: #ffebeb; }
@@ -417,7 +420,7 @@
   .application-progress-step--current .application-progress-step__heading h3 { color: #243a7a; }
   .application-progress-step--pending .application-progress-step__heading h3 { color: #8b93a3; }
   .application-progress-step--failed .application-progress-step__heading h3 { color: #9f221a; }
-  .application-progress-step--cancelled .application-progress-step__heading h3 { color: #596273; }
+  .application-progress-step--cancelled .application-progress-step__heading h3 { color: #b42318; }
   .application-progress-step--rejected .application-progress-step__heading h3 { color: #9f221a; }
   .application-progress-step__title-button { background: transparent; border: 0; color: inherit; cursor: pointer; font: inherit; padding: 0; text-align: start; }
   .application-progress-step__title-button:hover { text-decoration: underline; text-underline-offset: 3px; }
@@ -426,7 +429,7 @@
   .application-progress-step__detail { color: #596273; font-size: .82rem !important; margin: 5px 0 0; overflow-wrap: anywhere; }
   .application-progress-step--pending .application-progress-step__detail { color: #9aa1ad; }
   .application-progress-step--failed .application-progress-step__detail { color: #9f221a; }
-  .application-progress-step--cancelled .application-progress-step__detail { color: #596273; }
+  .application-progress-step--cancelled .application-progress-step__detail { color: #b42318; }
   .application-progress-step--rejected .application-progress-step__detail { color: #9f221a; }
   .application-progress-step--action-required .application-progress-step__detail { color: #b42318; font-size: .76rem !important; line-height: 1.5; }
   .application-progress-step__action { background: #fff1f0; border: 1px solid #f3b7b2; border-radius: 999px; color: #b42318; cursor: pointer; font-family: inherit; font-size: .72rem; font-weight: 800; padding: 3px 8px; }

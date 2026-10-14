@@ -1,30 +1,40 @@
 <script setup lang="ts">
-  import { useI18n } from 'vue-i18n'
-
-  const { t } = useI18n()
+import { useI18n } from 'vue-i18n'
+import { useRouter } from 'vue-router'
+type Type = 'CORRECTION_REQUIRED' | 'INSPECTION_FAILED' | 'CERTIFICATE_READY' | 'APPLICATION_REJECTED' | 'APPLICATION_EXPIRED' | 'VEHICLE_EXPIRING_SOON' | 'VEHICLE_EXPIRED'
+type Item = { id: string, type: Type, createdAt: string, read: boolean, action?: 'correction' | 'application' | 'certificate' | 'vehicle' }
+const { t, locale } = useI18n(); const router = useRouter(); const filter = ref<'all' | 'read' | 'unread'>('all')
+const notifications = ref<Item[]>([
+  { id: '1', type: 'CORRECTION_REQUIRED', createdAt: new Date().toISOString(), read: false, action: 'correction' },
+  { id: '2', type: 'INSPECTION_FAILED', createdAt: new Date(Date.now() - 4800000).toISOString(), read: false, action: 'application' },
+  { id: '3', type: 'CERTIFICATE_READY', createdAt: new Date(Date.now() - 93600000).toISOString(), read: true, action: 'certificate' },
+  { id: '4', type: 'APPLICATION_REJECTED', createdAt: new Date(Date.now() - 100800000).toISOString(), read: false, action: 'application' },
+  { id: '5', type: 'APPLICATION_EXPIRED', createdAt: new Date(Date.now() - 180000000).toISOString(), read: true },
+  { id: '6', type: 'VEHICLE_EXPIRING_SOON', createdAt: new Date(Date.now() - 187200000).toISOString(), read: true, action: 'vehicle' },
+  { id: '7', type: 'VEHICLE_EXPIRED', createdAt: new Date(Date.now() - 266400000).toISOString(), read: false, action: 'vehicle' },
+])
+const presentation: Record<Type, { icon: string, tone: 'warning' | 'error' | 'success' }> = { CORRECTION_REQUIRED: { icon: 'mdi-file-document-edit-outline', tone: 'warning' }, INSPECTION_FAILED: { icon: 'mdi-alert-circle-outline', tone: 'error' }, CERTIFICATE_READY: { icon: 'mdi-certificate-outline', tone: 'success' }, APPLICATION_REJECTED: { icon: 'mdi-file-remove-outline', tone: 'error' }, APPLICATION_EXPIRED: { icon: 'mdi-calendar-remove-outline', tone: 'warning' }, VEHICLE_EXPIRING_SOON: { icon: 'mdi-car-clock', tone: 'warning' }, VEHICLE_EXPIRED: { icon: 'mdi-car-off', tone: 'error' } }
+const visible = computed(() => notifications.value.filter(n => filter.value === 'all' || (filter.value === 'read' ? n.read : !n.read)))
+const unread = computed(() => notifications.value.filter(n => !n.read).length)
+const today = computed(() => visible.value.filter(n => isToday(n.createdAt))); const earlier = computed(() => visible.value.filter(n => !isToday(n.createdAt)))
+function isToday (value: string) { return new Date(value).toDateString() === new Date().toDateString() }
+function time (value: string) { const date = new Date(value); const language = locale.value === 'kh' ? 'km-KH' : 'en-US'; return isToday(value) ? date.toLocaleTimeString(language, { hour: 'numeric', minute: '2-digit' }) : date.toLocaleDateString(language, { day: 'numeric', month: 'short', year: 'numeric' }) }
+function title (item: Item) { return t(`inspection_notification_${item.type.toLowerCase()}_title`) }
+function message (item: Item) { return t(`inspection_notification_${item.type.toLowerCase()}_message`) }
+function actionLabel (item: Item) { return item.action ? t(`inspection_notification_action_${item.action}`) : '' }
+function markAll () { notifications.value.forEach(n => n.read = true) }
+function open (item: Item) { item.read = true; void router.push(item.type.includes('VEHICLE') ? '/services/inspection/vehicles' : '/services/inspection/applications') }
 </script>
 
 <template>
-  <section class="inspection-notifications-view">
-    <header class="inspection-notifications-heading">
-      <h1>{{ t('inspection_notifications') }}</h1>
-      <p>{{ t('inspection_notifications_description') }}</p>
-    </header>
-
-    <v-card class="inspection-notifications-empty mt-6" elevation="0">
-      <v-icon color="primary" icon="mdi-bell-outline" size="56" />
-      <h2>{{ t('inspection_notifications_empty_title') }}</h2>
-      <p>{{ t('inspection_notifications_empty_description') }}</p>
-    </v-card>
+  <section class="notification-page">
+    <header class="notification-hero"><h1>{{ t('inspection_notifications') }}</h1><span>{{ t('inspection_notifications_description') }}</span></header>
+    <div class="notification-toolbar"><div class="filters" role="tablist"><button :class="{ active: filter === 'all' }" @click="filter = 'all'">{{ t('inspection_notification_filter_all') }}</button><button :class="{ active: filter === 'read' }" @click="filter = 'read'">{{ t('inspection_notification_filter_read') }}</button><button :class="{ active: filter === 'unread' }" @click="filter = 'unread'">{{ t('inspection_notification_filter_unread') }} <b v-if="unread">{{ unread }}</b></button></div><v-btn :disabled="!unread" prepend-icon="mdi-check-all" variant="text" @click="markAll">{{ t('inspection_notification_mark_all_read') }}</v-btn></div>
+    <template v-if="visible.length"><section v-if="today.length" class="group"><h2>{{ t('inspection_notification_today') }}</h2><article v-for="item in today" :key="item.id" :class="['notice', `notice--${presentation[item.type].tone}`, { unread: !item.read }]"><div :class="['notice-icon', `notice-icon--${presentation[item.type].tone}`]"><v-icon :icon="presentation[item.type].icon" size="25" /></div><div><h3>{{ title(item) }}</h3><p>{{ message(item) }}</p><time><v-icon icon="mdi-clock-outline" size="16" /> {{ time(item.createdAt) }}</time></div><i v-if="!item.read" /><v-btn v-if="item.action" :color="presentation[item.type].tone === 'error' ? 'error' : 'primary'" size="small" variant="flat" @click="open(item)">{{ actionLabel(item) }}</v-btn></article></section><section v-if="earlier.length" class="group"><h2>{{ t('inspection_notification_earlier') }}</h2><article v-for="item in earlier" :key="item.id" :class="['notice', `notice--${presentation[item.type].tone}`, { unread: !item.read }]"><div :class="['notice-icon', `notice-icon--${presentation[item.type].tone}`]"><v-icon :icon="presentation[item.type].icon" size="25" /></div><div><h3>{{ title(item) }}</h3><p>{{ message(item) }}</p><time><v-icon icon="mdi-clock-outline" size="16" /> {{ time(item.createdAt) }}</time></div><i v-if="!item.read" /><v-btn v-if="item.action" :color="presentation[item.type].tone === 'error' ? 'error' : 'primary'" size="small" variant="flat" @click="open(item)">{{ actionLabel(item) }}</v-btn></article></section></template>
+    <v-card v-else class="empty" elevation="0"><v-icon color="primary" icon="mdi-bell-off-outline" size="52" /><h2>{{ t('inspection_notifications_empty_title') }}</h2><p>{{ t('inspection_notifications_empty_description') }}</p></v-card>
   </section>
 </template>
 
 <style scoped>
-  .inspection-notifications-view :deep(*) { font-weight: 400 !important; }
-  .inspection-notifications-view { padding-bottom: 24px; }
-  .inspection-notifications-heading h1 { color: #10172d; font-size: clamp(1.45rem, 2.25vw, 1.9rem); font-weight: 800; line-height: 1.2; }
-  .inspection-notifications-heading p { color: #656776; font-size: .91rem; margin-top: 5px; }
-  .inspection-notifications-empty { align-items: center; border: 1px solid #d4d5de; border-radius: 16px; box-shadow: 0 6px 16px rgba(31, 36, 69, .05); display: flex; flex-direction: column; justify-content: center; min-height: 280px; padding: 30px; text-align: center; }
-  .inspection-notifications-empty h2 { color: #20212a; font-size: 1.1rem; font-weight: 800; margin-top: 14px; }
-  .inspection-notifications-empty p { color: #656776; font-size: .9rem; margin-top: 5px; max-width: 520px; }
+.notification-page { margin:auto; max-width:1120px; padding:4px 0 42px; }.notification-page :deep(*) { font-weight:400 !important; }.notification-hero { background:linear-gradient(118deg,#27336e,#455996); border-radius:22px; box-shadow:0 15px 30px rgba(38,52,112,.13); color:#fff; margin-bottom:30px; overflow:hidden; padding:42px 48px; position:relative; }.notification-hero::after { background:rgba(255,255,255,.055); border:1px solid rgba(255,255,255,.09); border-radius:50%; content:''; height:260px; position:absolute; right:-78px; top:-128px; width:260px; }.notification-hero h1 { font-size:clamp(1.48rem,2.55vw,1.9rem);font-weight:400 !important;line-height:1.4;margin:0;position:relative;z-index:1; }.notification-hero span { color:#e1e5f5;display:block;font-size:.86rem;line-height:1.7;margin-top:8px;max-width:720px;position:relative;z-index:1; }.notification-toolbar { align-items:center;display:flex;justify-content:space-between;margin-bottom:25px; }.filters { display:flex;gap:9px; }.filters button { background:#fff;border:1px solid #cfd5e2;border-radius:999px;color:#505767;cursor:pointer;font:inherit;font-size:.84rem;padding:8px 16px;transition:background .18s,border-color .18s,color .18s; }.filters button:hover { background:#f2f5ff;border-color:#aebce9; }.filters button.active { background:#cbd6ff;border-color:#cbd6ff;color:#233172;font-weight:400 !important; }.filters b { background:rgba(35,49,114,.13);border-radius:99px;font-size:.68rem;margin-left:4px;padding:1px 6px; }.notification-toolbar :deep(.v-btn) { color:#27366f;font-size:.84rem;font-weight:400 !important;text-transform:none; }.group { margin-top:26px; }.group h2 { color:#283353;font-size:1.02rem;font-weight:400 !important;margin:0 0 12px 8px; }.notice { align-items:flex-start;background:linear-gradient(102deg,#fff,#fdfdff);border:1px solid #e1e4ea;border-radius:17px;box-shadow:0 8px 22px rgba(34,42,73,.045);display:grid;gap:16px;grid-template-columns:46px minmax(0,1fr) auto;margin-top:13px;padding:20px 25px;position:relative;transition:box-shadow .2s,transform .2s; }.notice:hover { box-shadow:0 12px 27px rgba(34,42,73,.08);transform:translateY(-1px); }.notice--error { border-color:#f1c9c9; }.notice--warning { border-color:#f0debc; }.notice-icon { align-items:center;border-radius:50%;display:flex;height:46px;justify-content:center;width:46px; }.notice-icon--success { background:#e5f5eb;color:#1e7a47; }.notice-icon--warning { background:#fff3db;color:#ae6712; }.notice-icon--error { background:#ffe4e2;color:#c42b27; }.notice h3 { color:#263357;font-size:.94rem;font-weight:400 !important;line-height:1.55;margin:0 24px 2px 0; }.notice p { color:#697184;font-size:.82rem;line-height:1.65;margin:0; }.notice time { align-items:center;color:#8991a0;display:flex;font-size:.74rem;gap:5px;margin-top:8px; }.notice > i { background:#4963a5;border:3px solid #fff;border-radius:50%;height:13px;position:absolute;right:20px;top:19px;width:13px; }.notice :deep(.v-btn) { align-self:end;font-size:.78rem;margin:0 0 1px 10px;min-height:32px;text-transform:none; }.empty { align-items:center;border:1px solid #dbe0ea;border-radius:16px;display:flex;flex-direction:column;justify-content:center;min-height:270px;padding:32px;text-align:center; }.empty h2 { color:#263357;font-size:1rem;font-weight:400 !important;margin:14px 0 5px; }.empty p { color:#656d7d;font-size:.84rem;margin:0;max-width:510px; } @media(max-width:700px){.notification-hero{border-radius:16px;padding:28px 23px}.notification-toolbar{align-items:flex-start;flex-direction:column;gap:14px}.notice{gap:14px;grid-template-columns:42px minmax(0,1fr);padding:18px}.notice-icon{height:42px;width:42px}.notice :deep(.v-btn){grid-column:2;justify-self:start;margin:0}.notice>i{right:18px;top:17px}}
 </style>

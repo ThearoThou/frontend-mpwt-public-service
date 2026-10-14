@@ -28,7 +28,7 @@
     return payment.value === null ? '' : paymentStatusKey(payment.value.status)
   })
   const displayedStatusColor = computed(() => {
-    if (props.application.status === 'CANCELLED') return 'secondary'
+    if (props.application.status === 'CANCELLED') return 'error'
     return payment.value === null ? 'secondary' : paymentStatusColor(payment.value.status)
   })
   const displayedStatusIcon = computed(() => {
@@ -36,7 +36,10 @@
     return payment.value === null ? 'mdi-help-circle-outline' : paymentStatusIcon(payment.value.status)
   })
   const displayedStatusClass = computed(() => {
-    if (props.application.status === 'CANCELLED' || payment.value === null) {
+    if (props.application.status === 'CANCELLED') {
+      return 'official-invoice-preview__status--rejected'
+    }
+    if (payment.value === null) {
       return 'official-invoice-preview__status--secondary'
     }
     return `official-invoice-preview__status--${payment.value.status.toLowerCase()}`

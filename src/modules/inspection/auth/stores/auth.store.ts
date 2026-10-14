@@ -84,6 +84,10 @@ export const useInspectionAuthStore = defineStore('inspection-auth', () => {
     return current
   }
 
+  async function verifyEmailChange (email: string, code: string) {
+    currentUser.value = await inspectionAuthService.verifyEmailChange({ email, code })
+  }
+
   async function changePassword (input: ChangePasswordInput) {
     await applySession(await inspectionAuthService.changePassword(input))
   }
@@ -182,5 +186,5 @@ export const useInspectionAuthStore = defineStore('inspection-auth', () => {
     }
   }
 
-  return { accessToken, applySession, changePassword, clearPasswordResetVerification, clearRegistrationVerification, clearSession, currentUser, hasRestoredSession, isAuthenticated, isCitizen, login, logout, logoutInProgress, passwordResetAuthorization, passwordResetRequest, register, registrationVerification, requestPasswordReset, resendRegistrationVerification, restoreSession, setPasswordResetAuthorization, updateCitizenProfile }
+  return { accessToken, applySession, changePassword, clearPasswordResetVerification, clearRegistrationVerification, clearSession, currentUser, hasRestoredSession, isAuthenticated, isCitizen, login, logout, logoutInProgress, passwordResetAuthorization, passwordResetRequest, register, registrationVerification, requestPasswordReset, resendRegistrationVerification, restoreSession, setPasswordResetAuthorization, updateCitizenProfile, verifyEmailChange }
 })

@@ -78,12 +78,13 @@
     const nameKh = combineKhmerName(form.familyNameKh, form.givenNameKh)
     const issue = form.familyNameKh.trim()
         ? (form.givenNameKh.trim()
-        ? getKhmerNameIssue(nameKh) ?? getEnglishNameIssue(form.nameEn.trim()) ?? (form.phone.trim() && !isInspectionPhone(form.phone.trim()) ? 'inspection_phone_invalid' : undefined) ?? (form.email.trim() ? getInspectionEmailIssue(form.email.trim()) : undefined)
+        ? getKhmerNameIssue(nameKh) ?? getEnglishNameIssue(form.nameEn.trim()) ?? (form.phone.trim() && !isInspectionPhone(form.phone.trim()) ? 'inspection_phone_invalid' : undefined) ?? getInspectionEmailIssue(form.email.trim())
         : 'inspection_given_name_kh_required')
       : 'inspection_family_name_kh_required'; if (issue) {
         profileError.value = t(issue); return
       }; saving.value = true; clearProfileFeedback(); try {
-        await auth.updateCitizenProfile({ nameKh, nameEn: form.nameEn.trim() || null, phone: form.phone.trim() || undefined, email: form.email.trim() || null, address: form.address.trim() || null }); editing.value = false; noticeKey.value = 'inspection_profile_saved'; await revealNotice()
+        await auth.updateCitizenProfile({ nameKh, nameEn: form.nameEn.trim() || null, phone: form.phone.trim() || undefined, email: form.email.trim(), address: form.address.trim() || null }); editing.value = false
+        noticeKey.value = 'inspection_profile_saved'; await revealNotice()
       } catch (error) {
         profileError.value = t(getInspectionAuthErrorCode(error) === 'AUTH_INVALID_CREDENTIALS' ? 'inspection_current_password_incorrect' : getInspectionAuthError(error, 'inspection_profile_save_error'))
       } finally {
@@ -156,6 +157,7 @@
 
                                       <v-chip
                                         v-if="verified"
+                                        class="profile-verified"
                                         color="success"
                                         prepend-icon="mdi-shield-check-outline"
                                         size="small"
@@ -284,4 +286,6 @@
 </template>
 <style scoped>
 .profile-view{max-width:1120px;padding-bottom:28px}.profile-view h1{color:#151925;font-size:clamp(1.5rem,2.5vw,2rem)}header p{color:#656776;line-height:1.6}.layout{align-items:start;display:grid;gap:24px;grid-template-columns:minmax(0,2fr) minmax(300px,1fr)}.summary,.card{border:1px solid #dfe1e8;border-radius:16px;box-shadow:none}.summary{align-items:center;display:flex;gap:18px;padding:24px}.summary h2,.card-title h2,.vehicle-title h2{color:#171b28;font-size:1.12rem}.summary p{color:#555a67;margin:5px 0}.card{padding:0 24px 28px}.card-title{align-items:center;border-bottom:1px solid #e2e3e9;display:flex;justify-content:space-between;margin:0 -24px 24px;padding:20px 24px}.edit-button{text-transform:none}.fields{display:grid;gap:4px 18px;grid-template-columns:1fr 1fr}.fields :last-child{grid-column:1/-1}.form-actions{display:flex;gap:8px;justify-content:flex-end}.cancel-button{background:#a6a6a6!important;color:#fff!important;font-weight:700}.security-copy{color:#656776;line-height:1.75;margin:0 0 24px;white-space:pre-line}.password-fields{display:grid;gap:14px}.password-fields :deep(.v-text-field){margin:0}.password-action{margin-top:24px;min-height:46px}.vehicle-title{align-items:center;display:flex;justify-content:space-between}.vehicles{display:grid;gap:18px;grid-template-columns:repeat(3,minmax(0,1fr));margin-top:16px}.vehicles :deep(.vehicle-card){box-shadow:none}@media(max-width:900px){.layout{grid-template-columns:1fr}.vehicles{grid-template-columns:repeat(2,1fr)}}@media(max-width:600px){.fields,.vehicles{grid-template-columns:1fr}.fields :last-child{grid-column:auto}.card{padding-inline:18px}.card-title{margin-inline:-18px;padding-inline:18px}.security-copy{margin-bottom:20px}.password-fields{gap:12px}}
+  .profile-verified { background: #e8f5ea !important; color: #2f9e44 !important; font-weight: 400 !important; }
+  .profile-verified :deep(.v-icon) { color: #2f9e44 !important; }
 </style>

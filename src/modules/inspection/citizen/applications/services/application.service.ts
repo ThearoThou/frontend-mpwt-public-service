@@ -17,6 +17,9 @@ export const inspectionApplicationService = {
   async resubmit (applicationId: string): Promise<RenewalApplication> {
     return (await http.post<ApiDataResponse<RenewalApplication>>(`/applications/${applicationId}/resubmit`)).data.data
   },
+  async cancel (applicationId: string, reason?: string): Promise<RenewalApplication> {
+    return (await http.post<ApiDataResponse<RenewalApplication>>(`/applications/${applicationId}/cancel`, reason === undefined ? {} : { reason })).data.data
+  },
   async getById (applicationId: string): Promise<RenewalApplicationDetail> {
     return (await http.get<ApiDataResponse<RenewalApplicationDetail>>(`/applications/${applicationId}`)).data.data
   },
@@ -102,18 +105,30 @@ function certificateDownloadFilename (contentDisposition: unknown): string {
     return fallback
   }
 
-  const match = /filename="?([^";]+)"?/iu.exec(contentDisposition)
-  if (!match?.[1]) {
+  const encodedMatch = /filename\*\s*=\s*UTF-8''([^;]+)/iu.exec(contentDisposition)
+  const fallbackMatch = /filename="?([^";]+)"?/iu.exec(contentDisposition)
+  let filename = fallbackMatch?.[1]
+
+  if (encodedMatch?.[1]) {
+    try {
+      filename = decodeURIComponent(encodedMatch[1])
+    } catch {
+      // Use the ASCII filename fallback when a malformed extended value is received.
+    }
+  }
+
+  if (!filename) {
     return fallback
   }
 
-  const filename = match[1]
+  const safeFilename = filename
+    .normalize('NFC')
     .replace(/^.*[\\/]/u, '')
-    .replace(/[^\w.-]+/gu, '_')
+    .replace(/[\\/\r\n:*?"<>|]/gu, '_')
     .replace(/_+/gu, '_')
     .replace(/^[._-]+|[._-]+$/gu, '')
 
-  return filename.toLowerCase().endsWith('.pdf') && filename.length > 4
-    ? filename
+  return safeFilename.toLowerCase().endsWith('.pdf') && safeFilename.length > 4
+    ? safeFilename
     : fallback
 }

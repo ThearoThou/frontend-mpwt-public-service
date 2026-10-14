@@ -27,7 +27,7 @@ const lifecycleStatuses: Record<ApplicationStatus, CitizenApplicationStatus> = {
   INSPECTION_FAILED: { color: 'error', icon: 'mdi-car-alert', labelKey: 'inspection_renewal_status_inspection_failed' },
   EXPIRED: { color: 'error', icon: 'mdi-calendar-alert-outline', labelKey: 'inspection_renewal_status_expired' },
   REJECTED: { color: 'error', icon: 'mdi-close-circle-outline', labelKey: 'inspection_application_status_rejected' },
-  CANCELLED: { color: 'secondary', icon: 'mdi-cancel', labelKey: 'inspection_application_status_cancelled' },
+  CANCELLED: { color: 'error', icon: 'mdi-cancel', labelKey: 'inspection_application_status_cancelled' },
   COMPLETED: { color: 'success', icon: 'mdi-check-circle-outline', labelKey: 'inspection_application_status_completed' },
 }
 
@@ -91,7 +91,7 @@ export function resolveCitizenApplicationSummaryStatus (application: CitizenAppl
     case 'INSPECTION_FAILED':
     case 'REJECTED': { return { color: 'error', icon: 'mdi-close-circle-outline', labelKey: 'inspection_applications_filter_unsuccessful' } }
     case 'COMPLETED': { return { color: 'success', icon: 'mdi-check-circle-outline', labelKey: 'inspection_application_status_completed' } }
-    case 'CANCELLED': { return { color: 'secondary', icon: 'mdi-cancel', labelKey: 'inspection_summary_status_cancelled' } }
+    case 'CANCELLED': { return { color: 'error', icon: 'mdi-cancel', labelKey: 'inspection_summary_status_cancelled' } }
     case 'EXPIRED': { return { color: 'error', icon: 'mdi-calendar-alert-outline', labelKey: 'inspection_application_status_expired' } }
     default: {
       if (application.inspection?.result === 'FAIL') {

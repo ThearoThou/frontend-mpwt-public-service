@@ -11,14 +11,14 @@ export const INSPECTION_PASSWORD_MAX_LENGTH = 128
 
 export function isInspectionEmail (value: string): boolean {
   const [localPart, domain, extraPart] = value.split('@')
-  return Boolean(localPart && domain && !extraPart && !value.includes(' ') && domain.includes('.'))
+  return Boolean(localPart && domain?.toLowerCase() === 'gmail.com' && !extraPart && !value.includes(' '))
 }
 
 export function getInspectionEmailIssue (value: string): InspectionAuthValidationIssue | undefined {
   if (value.length > INSPECTION_EMAIL_MAX_LENGTH) {
     return 'inspection_email_maximum'
   }
-  return isInspectionEmail(value) ? undefined : 'inspection_email'
+  return isInspectionEmail(value) ? undefined : 'inspection_email_invalid'
 }
 
 export function isInspectionPhone (value: string): boolean {
@@ -107,7 +107,10 @@ export function getInspectionAuthError (error: unknown, fallback: string): strin
     RESET_TOKEN_EXPIRED: 'inspection_reset_authorization_expired',
     RESET_TOKEN_USED: 'inspection_error_used_reset_authorization',
     USER_IDENTIFIER_CONFLICT: 'inspection_error_identifier_conflict',
+    USER_PHONE_CONFLICT: 'inspection_phone_already_used',
+    USER_EMAIL_CONFLICT: 'inspection_email_already_used',
     EMAIL_DOMAIN_INVALID: 'inspection_email_domain_invalid',
+    EMAIL_DELIVERY_RESTRICTED: 'inspection_email_delivery_restricted',
     CONFLICT: 'inspection_error_registration_conflict',
   }
   if (messages[errorCode]) {

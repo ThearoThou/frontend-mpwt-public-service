@@ -5,7 +5,7 @@
   import { useInspectionAuthError } from '../composables/useInspectionAuthError'
   import { inspectionAuthService } from '../services/auth.service'
   import { useInspectionAuthStore } from '../stores/auth.store'
-  import { getInspectionAuthError, getInspectionIdentifierIssue, getVerificationCodeIssue } from '../utils/auth.utils'
+  import { getInspectionAuthError, getInspectionEmailIssue, getVerificationCodeIssue } from '../utils/auth.utils'
 
   type ErrorKind = 'api' | 'identifier' | 'validation'
 
@@ -42,7 +42,7 @@
 
   function getVerificationIssues () {
     const issues: string[] = []
-    const identifierIssue = getInspectionIdentifierIssue(identifier.value)
+    const identifierIssue = getInspectionEmailIssue(identifier.value)
     const codeIssue = getVerificationCodeIssue(code.value)
 
     if (identifierIssue) issues.push(identifierIssue)
@@ -77,7 +77,7 @@
   async function resend () {
     if (resendLoading.value || loading.value) return
 
-    const identifierIssue = getInspectionIdentifierIssue(identifier.value)
+    const identifierIssue = getInspectionEmailIssue(identifier.value)
     if (identifierIssue) {
       showError('validation', 'inspection_validation_error', [identifierIssue])
       return
@@ -105,10 +105,10 @@
 
     <v-form @submit.prevent="verify">
       <v-text-field
-        autocomplete="username"
-        :label="$t('inspection_identifier')"
+        autocomplete="email"
+        :label="$t('inspection_email')"
         :model-value="identifier"
-        prepend-inner-icon="mdi-account-outline"
+        prepend-inner-icon="mdi-email-outline"
         readonly
       />
       <v-otp-input v-model="code" class="mb-2" :length="6" :loading="loading" variant="outlined" />

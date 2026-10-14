@@ -516,10 +516,17 @@
   "inspection_name_en_optional": "នាម និងគោត្តនាម(ឡាតាំង) (ជាជម្រើស)",
   "inspection_phone": "លេខទូរស័ព្ទ",
   "inspection_email": "អុីមែល",
+  "inspection_email_invalid": "សូមបញ្ចូលអ៊ីមែលឲ្យបានត្រឹមត្រូវ។",
+  "inspection_email_change_verify_title": "ផ្ទៀងផ្ទាត់អ៊ីមែលថ្មីរបស់អ្នក",
+  "inspection_email_change_verify_description": "បញ្ចូលលេខកូដ ៦ ខ្ទង់ដែលបានផ្ញើទៅ {email}។ អ៊ីមែលរបស់អ្នកនឹងផ្លាស់ប្ដូរបន្ទាប់ពីផ្ទៀងផ្ទាត់រួច។",
   "inspection_contact_required": "សូមបំពេញលេខទូរស័ព្ទ ឬអុីមែលយ៉ាងហោចណាស់មួយ។",
   "inspection_identifier_invalid": "សូមបញ្ចូលលេខទូរស័ព្ទ ឬអុីមែលដែលត្រឹមត្រូវ។",
+  "inspection_email_otp_only": "អ្នកអាចប្រើលេខទូរស័ព្ទ ឬអ៊ីមែលដើម្បីសម្គាល់គណនីរបស់អ្នក។ បច្ចុប្បន្នលេខកូដ OTP តាមអ៊ីមែលអាចប្រើបាន ខណៈ OTP តាមសារ SMS មិនទាន់ដំណើរការ។",
   "inspection_phone_invalid": "សូមបញ្ចូលលេខទូរស័ព្ទឲបានត្រឹមត្រូវ។",
   "inspection_email_domain_invalid": "ដែនអ៊ីមែលនេះមិនអាចទទួលអ៊ីមែលបានទេ។ សូមប្រើអ៊ីមែលដែលមានដែនត្រឹមត្រូវ។",
+  "inspection_phone_already_used": "លេខទូរស័ព្ទនេះត្រូវបានប្រើដោយគណនីផ្សេងរួចហើយ។",
+  "inspection_email_already_used": "អ៊ីមែលនេះត្រូវបានប្រើដោយគណនីផ្សេងរួចហើយ។",
+  "inspection_email_delivery_restricted": "សេវាផ្ញើអ៊ីមែលកំពុងស្ថិតក្នុងរបៀបសាកល្បង Resend។ វាអាចផ្ញើបានតែទៅអ៊ីមែលគណនី Resend ប៉ុណ្ណោះ រហូតដល់អ្នកផ្ទៀងផ្ទាត់ដែនអ្នកផ្ញើ។",
   "inspection_name_kh_invalid": "ឈ្មោះជាភាសាខ្មែរត្រូវតែប្រើអក្សរខ្មែរ។",
   "inspection_name_kh_required": "សូមបញ្ចូលគោត្តនាម និងនាម",
   "inspection_name_kh_maximum": "ឈ្មោះជាភាសាខ្មែរត្រូវមានមិនលើសពី 150 តួអក្សរ។",
@@ -556,7 +563,7 @@
   "inspection_back_to_register": "ត្រឡប់ទៅការចុះឈ្មោះ",
   "inspection_back_to_forgot_password": "ត្រឡប់ទៅទំព័រភ្លេចពាក្យសម្ងាត់",
   "inspection_verify_account": "ផ្ទៀងផ្ទាត់គណនី",
-  "inspection_verify_description": "បញ្ចូលលេខកូដ ៦ ខ្ទង់ ដែលបានផ្ញើទៅលេខទូរស័ព្ទ ឬអុីមែលរបស់អ្នក។",
+  "inspection_verify_description": "បញ្ចូលលេខកូដ ៦ ខ្ទង់ ដែលបានផ្ញើទៅអុីមែលរបស់អ្នក។",
   "inspection_verify": "ផ្ទៀងផ្ទាត់",
   "inspection_resend_code": "ផ្ញើលេខកូដម្ដងទៀត",
   "inspection_verification_code_sent": "លេខកូដផ្ទៀងផ្ទាត់ត្រូវបានផ្ញើ ប្រសិនបើគណនីមានសិទ្ធិ។",
@@ -567,7 +574,7 @@
   "inspection_send_reset_code": "ផ្ញើលេខកូដកំណត់",
   "inspection_forgot_error": "មិនអាចស្នើកំណត់ពាក្យសម្ងាត់ឡើងវិញបានទេ។",
   "inspection_reset_verify_code": "ផ្ទៀងផ្ទាត់លេខកូដកំណត់",
-  "inspection_reset_verify_description": "បញ្ចូលលេខកូដកំណត់ ៦ ខ្ទង់ ដែលបានផ្ញើទៅលេខទូរស័ព្ទ ឬអុីមែលរបស់អ្នក។",
+  "inspection_reset_verify_description": "បញ្ចូលលេខកូដកំណត់ ៦ ខ្ទង់ ដែលបានផ្ញើទៅអុីមែលរបស់អ្នក។",
   "inspection_resend_reset_code": "ផ្ញើលេខកូដកំណត់ឡើងវិញ",
   "inspection_reset_resend_success": "ប្រសិនបើគណនីមានសិទ្ធិ លេខកូដកំណត់ថ្មីត្រូវបានផ្ញើរួចហើយ។",
   "inspection_reset_resend_error": "មិនអាចផ្ញើលេខកូដកំណត់ឡើងវិញបានទេ។",
@@ -796,4 +803,39 @@
   ,"inspection_renewal_confirm_yes": "\u1799\u179b\u17cb\u1796\u17d2\u179a\u1798"
   ,"inspection_application_status_certificate_issuance_in_progress": "\u1780\u17c6\u1796\u17bb\u1784\u1785\u17c1\u1789\u179c\u17b7\u1789\u17d2\u1789\u17b6\u1794\u1793\u1794\u178f\u17d2\u179a\u1786\u17c0\u1780"
   ,"inspection_application_status_sticker_issuance_in_progress": "\u1780\u17c6\u1796\u17bb\u1784\u1785\u17c1\u1789\u179f\u17d2\u1791\u17b8\u1780\u17ca\u179a"
+  ,"inspection_application_cancel": "\u1794\u17c4\u17c7\u1794\u1784\u17cb\u1796\u17b6\u1780\u17d2\u1799\u179f\u17bb\u17c6"
+  ,"inspection_application_cancel_title": "\u1794\u17c4\u17c7\u1794\u1784\u17cb\u1796\u17b6\u1780\u17d2\u1799\u179f\u17bb\u17c6"
+  ,"inspection_application_cancel_question": "\u178f\u17be\u17a2\u17d2\u1793\u1780\u1796\u17b7\u178f\u1787\u17b6\u1785\u1784\u17cb\u1794\u17c4\u17c7\u1794\u1784\u17cb\u1796\u17b6\u1780\u17d2\u1799\u179f\u17bb\u17c6\u1794\u1793\u17d2\u178f\u179f\u17bb\u1796\u179b\u1797\u17b6\u1796\u1793\u17c1\u17c7\u1798\u17c2\u1793\u1791\u17c1?"
+  ,"inspection_application_cancel_message": "\u1794\u17d2\u179a\u179f\u17b7\u1793\u1794\u17be\u17a2\u17d2\u1793\u1780\u1785\u1784\u17cb\u1794\u1793\u17d2\u178f\u1793\u17b6\u1796\u17c1\u179b\u1780\u17d2\u179a\u17c4\u1799 \u17a2\u17d2\u1793\u1780\u178f\u17d2\u179a\u17bc\u179c\u1785\u17b6\u1794\u17cb\u1795\u17d2\u178f\u17be\u1798\u1796\u17b6\u1780\u17d2\u1799\u179f\u17bb\u17c6\u1794\u1793\u17d2\u178f\u179f\u17bb\u1796\u179b\u1797\u17b6\u1796\u1790\u17d2\u1798\u17b8\u17d4"
+  ,"inspection_application_keep": "\u17a2\u178f\u17cb\u1791\u17c1"
+  ,"inspection_application_cancel_reason": "\u1798\u17bc\u179b\u17a0\u17c1\u178f\u17bb\u1793\u17c3\u1780\u17b6\u179a\u1794\u17c4\u17c7\u1794\u1784\u17cb"
+  ,"inspection_application_cancel_reason_optional": "\u1798\u17bc\u179b\u17a0\u17c1\u178f\u17bb\u1793\u17c3\u1780\u17b6\u179a\u1794\u17c4\u17c7\u1794\u1784\u17cb (\u1787\u1798\u17d2\u179a\u17be\u179f)"
+  ,"inspection_application_cancel_success": "\u1794\u17b6\u1793\u1794\u17c4\u17c7\u1794\u1784\u17cb\u1796\u17b6\u1780\u17d2\u1799\u179f\u17bb\u17c6\u178a\u17c4\u1799\u1787\u17c4\u1782\u1787\u17d0\u1799\u17d4"
+  ,"inspection_application_cancel_no_longer_available": "\u1796\u17b6\u1780\u17d2\u1799\u179f\u17bb\u17c6\u1793\u17c1\u17c7\u179b\u17c2\u1784\u17a2\u17b6\u1785\u1794\u17c4\u17c7\u1794\u1784\u17cb\u1794\u17b6\u1793\u17a0\u17be\u1799\u17d4"
+  ,"inspection_application_cancel_error": "\u1798\u17b7\u1793\u17a2\u17b6\u1785\u1794\u17c4\u17c7\u1794\u1784\u17cb\u1796\u17b6\u1780\u17d2\u1799\u179f\u17bb\u17c6\u1794\u17b6\u1793\u1791\u17c1\u17d4 \u179f\u17bc\u1798\u1796\u17d2\u1799\u17b6\u1799\u17b6\u1798\u1798\u17d2\u178f\u1784\u1791\u17c0\u178f\u17d4"
+  ,"inspection_application_cancel_maximum": "\u17a2\u178f\u17b7\u1794\u179a\u1798\u17b6 500 \u178f\u17bd\u17a2\u1780\u17d2\u179f\u179a"
+  ,"inspection_notification_filter_all": "ទាំងអស់"
+  ,"inspection_notification_filter_read": "បានអាន"
+  ,"inspection_notification_filter_unread": "មិនទាន់អាន"
+  ,"inspection_notification_mark_all_read": "សម្គាល់ថាបានអានទាំងអស់"
+  ,"inspection_notification_today": "ថ្ងៃនេះ"
+  ,"inspection_notification_earlier": "មុននេះ"
+  ,"inspection_notification_correction_required_title": "ត្រូវកែតម្រូវ"
+  ,"inspection_notification_correction_required_message": "សូមកែតម្រូវឯកសារដែលត្រូវបានស្នើ មុនពេលពាក្យសុំរបស់អ្នកអាចបន្តបាន។"
+  ,"inspection_notification_inspection_failed_title": "លទ្ធផលត្រួតពិនិត្យត្រូវការការយកចិត្តទុកដាក់"
+  ,"inspection_notification_inspection_failed_message": "យានយន្តរបស់អ្នកមិនបានជាប់ការត្រួតពិនិត្យទេ។ សូមពិនិត្យលទ្ធផល និងកែតម្រូវតាមការណែនាំ។"
+  ,"inspection_notification_certificate_ready_title": "វិញ្ញាបនបត្ររួចរាល់"
+  ,"inspection_notification_certificate_ready_message": "វិញ្ញាបនបត្រត្រួតពិនិត្យបច្ចេកទេសរបស់អ្នករួចរាល់សម្រាប់មើល និងទាញយក។"
+  ,"inspection_notification_application_rejected_title": "ពាក្យសុំត្រូវបានបដិសេធ"
+  ,"inspection_notification_application_rejected_message": "ពាក្យសុំរបស់អ្នកមិនត្រូវបានអនុម័តទេ។ សូមបើកពាក្យសុំដើម្បីមើលព័ត៌មានលម្អិត។"
+  ,"inspection_notification_application_expired_title": "ពាក្យសុំផុតកំណត់"
+  ,"inspection_notification_application_expired_message": "ពាក្យសុំបន្តសុពលភាពនេះបានផុតកំណត់ និងមិនអាចដាក់ស្នើបានទៀតទេ។"
+  ,"inspection_notification_vehicle_expiring_soon_title": "ការត្រួតពិនិត្យយានយន្តជិតផុតកំណត់"
+  ,"inspection_notification_vehicle_expiring_soon_message": "ការត្រួតពិនិត្យយានយន្តរបស់អ្នកជិតដល់ថ្ងៃផុតកំណត់។ អ្នកអាចចាប់ផ្តើមបន្តសុពលភាពបាន។"
+  ,"inspection_notification_vehicle_expired_title": "ការត្រួតពិនិត្យយានយន្តផុតកំណត់"
+  ,"inspection_notification_vehicle_expired_message": "ការត្រួតពិនិត្យយានយន្តរបស់អ្នកបានផុតកំណត់។ សូមដាក់ពាក្យសុំបន្តសុពលភាព។"
+  ,"inspection_notification_action_correction": "ពិនិត្យឯកសារ"
+  ,"inspection_notification_action_application": "មើលពាក្យសុំ"
+  ,"inspection_notification_action_certificate": "មើលវិញ្ញាបនបត្រ"
+  ,"inspection_notification_action_vehicle": "មើលយានយន្ត"
 }

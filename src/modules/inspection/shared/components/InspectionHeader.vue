@@ -33,7 +33,6 @@
     <v-app-bar-title class="inspection-header-title">{{ $t('inspection_service_title') }}</v-app-bar-title>
 
     <div class="inspection-header-actions">
-      <v-btn aria-label="Notifications" icon="mdi-bell-outline" to="/services/inspection/notifications" />
       <LanguageSwitcher display="flags" />
 
       <v-menu>

@@ -97,4 +97,6 @@ export interface CitizenProfileUpdateInput {
   address?: string | null
 }
 
+export interface VerifyEmailChangeInput { email: string, code: string }
+
 export interface ChangePasswordInput { currentPassword: string, newPassword: string }
