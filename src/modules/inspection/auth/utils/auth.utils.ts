@@ -55,7 +55,8 @@ export function getKhmerNameIssue (value: string): InspectionAuthValidationIssue
 }
 
 export function isEnglishName (value: string): boolean {
-  return /^[a-z][a-z .'-]*$/i.test(value)
+  const namePart = `[a-z]+(?:[.'-][a-z]+)*`
+  return new RegExp(String.raw`^${namePart}(?:\s+${namePart})+$`, 'i').test(value.trim())
 }
 
 export function getEnglishNameIssue (value: string): InspectionAuthValidationIssue | undefined {
@@ -106,6 +107,7 @@ export function getInspectionAuthError (error: unknown, fallback: string): strin
     RESET_TOKEN_EXPIRED: 'inspection_reset_authorization_expired',
     RESET_TOKEN_USED: 'inspection_error_used_reset_authorization',
     USER_IDENTIFIER_CONFLICT: 'inspection_error_identifier_conflict',
+    EMAIL_DOMAIN_INVALID: 'inspection_email_domain_invalid',
     CONFLICT: 'inspection_error_registration_conflict',
   }
   if (messages[errorCode]) {

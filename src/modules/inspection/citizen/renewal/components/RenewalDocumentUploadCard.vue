@@ -15,6 +15,11 @@
   }>()
 
   const inputId = computed(() => `renewal-document-${props.documentType.toLowerCase()}`)
+  const documentTypeIcon = computed(() => ({
+    VEHICLE_REGISTRATION_CARD: 'mdi-card-account-details-outline',
+    PREVIOUS_INSPECTION_CERTIFICATE: 'mdi-clipboard-check-outline',
+    CITIZEN_ID_CARD: 'mdi-card-account-details-outline',
+  })[props.documentType])
   const fileInput = ref<HTMLInputElement | null>(null)
   const isDragging = ref(false)
   const previewDialogVisible = ref(false)
@@ -54,8 +59,21 @@
   <!-- eslint-disable vue/padding-line-between-tags -->
   <article class="document-upload-card">
     <div class="d-flex align-center ga-3 mb-3">
-      <v-avatar color="primary" size="34" variant="tonal">
-        <v-icon icon="mdi-file-document-outline" size="20" />
+      <v-avatar
+        class="document-upload-card__type-avatar"
+        color="primary"
+        size="42"
+        variant="tonal"
+      >
+        <span v-if="documentType === 'VEHICLE_REGISTRATION_CARD'" class="document-upload-card__vehicle-id-icons">
+          <v-icon icon="mdi-card-account-details-outline" size="24" />
+          <v-icon class="document-upload-card__vehicle-id-car" icon="mdi-car-side" size="15" />
+        </span>
+        <span v-else-if="documentType === 'PREVIOUS_INSPECTION_CERTIFICATE'" class="document-upload-card__certificate-icon">
+          <v-icon icon="mdi-card-text-outline" size="24" />
+          <v-icon class="document-upload-card__certificate-check" icon="mdi-check-circle" size="13" />
+        </span>
+        <v-icon v-else :icon="documentTypeIcon" size="24" />
       </v-avatar>
       <h3 class="document-upload-card__title text-subtitle-1 font-weight-regular">{{ title }}</h3>
     </div>
@@ -85,7 +103,7 @@
       <v-icon v-else color="primary" icon="mdi-file-check-outline" size="30" />
 
       <div class="flex-grow-1 min-width-0">
-        <p class="text-body-2 font-weight-regular text-truncate mb-1">{{ document.originalFileName }}</p>
+        <p class="document-upload-card__filename text-body-2 font-weight-regular text-medium-emphasis text-truncate mb-1">{{ document.originalFileName }}</p>
       </div>
 
       <v-btn
@@ -99,14 +117,15 @@
       />
 
       <v-btn
+        class="document-upload-card__replace"
         color="primary"
         :disabled="uploading"
         :loading="uploading"
-        size="small"
-        variant="outlined"
         @click="chooseFile"
       >
-        {{ $t('inspection_document_replace') }}
+        {{ $t(document.mimeType.startsWith('image/')
+          ? 'inspection_application_correction_change_image'
+          : 'inspection_document_replace') }}
       </v-btn>
 
       <v-dialog v-model="previewDialogVisible" max-width="900">
@@ -162,20 +181,28 @@
 
 <style scoped>
   .document-upload-card {
-    border: 1px solid #e4e7ef;
-    border-radius: 14px;
+    border: 0;
+    border-radius: 0;
     padding: 18px;
   }
 
-  .document-upload-card__title { font-size: .94rem; }
+  .document-upload-card__title { font-size: .95rem !important; }
+  .document-upload-card__type-avatar { background: #e7e9f1 !important; color: #172d73 !important; }
+  .document-upload-card__type-avatar :deep(.v-avatar__underlay) { opacity: 0 !important; }
+  .document-upload-card__vehicle-id-icons { display: inline-flex; position: relative; }
+  .document-upload-card__vehicle-id-car { background: #e7e9f1; border-radius: 4px; bottom: -5px; position: absolute; right: -6px; }
+  .document-upload-card__certificate-icon { display: inline-flex; position: relative; }
+  .document-upload-card__certificate-check { background: #e7e9f1; border-radius: 50%; bottom: -2px; position: absolute; right: -4px; }
   .document-upload-card__prompt { font-size: .94rem; }
   .document-upload-card__requirements { font-size: .9rem; }
+  .document-upload-card__replace { font-size: .8rem; }
+  .document-upload-card__filename { font-size: .85rem !important; }
 
   .document-upload-card__current-file {
     align-items: center;
-    background: #f8f9fc;
-    border: 1px solid #e2e5ed;
-    border-radius: 10px;
+    background: transparent;
+    border: 0;
+    border-radius: 0;
     display: flex;
     gap: 12px;
     padding: 14px;

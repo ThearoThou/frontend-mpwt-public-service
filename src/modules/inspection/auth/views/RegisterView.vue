@@ -4,20 +4,21 @@
   import { useInspectionAuthError } from '../composables/useInspectionAuthError'
   import { useInspectionAuthStore } from '../stores/auth.store'
   import { getEnglishNameIssue, getInspectionAuthError, getInspectionEmailIssue, getKhmerNameIssue, getPasswordConfirmationIssue, getPasswordIssue, isInspectionPhone } from '../utils/auth.utils'
+  import { combineKhmerName } from '../utils/khmer-name-parts'
 
   type ErrorKind = 'api' | 'validation'
 
   const route = useRoute()
   const router = useRouter()
   const authStore = useInspectionAuthStore()
-  const form = reactive({ nameKh: '', nameEn: '', phone: '', email: '', password: '', passwordConfirmation: '' })
+  const form = reactive({ familyNameKh: '', givenNameKh: '', nameEn: '', phone: '', email: '', password: '', passwordConfirmation: '' })
   const showPassword = ref(false)
   const loading = ref(false)
   const { clearError, errorKind, errorMessage, showError } = useInspectionAuthError<ErrorKind>()
   let clearingSubmittedPasswords = false
 
   watch(
-    () => [form.nameKh, form.nameEn, form.phone, form.email, form.password, form.passwordConfirmation],
+    () => [form.familyNameKh, form.givenNameKh, form.nameEn, form.phone, form.email, form.password, form.passwordConfirmation],
     () => {
       if (clearingSubmittedPasswords) return
 
@@ -34,13 +35,23 @@
 
   function getRegistrationIssues () {
     const issues: string[] = []
-    const nameKhIssue = getKhmerNameIssue(form.nameKh)
+    const familyNameKh = form.familyNameKh.trim()
+    const givenNameKh = form.givenNameKh.trim()
     const nameEnIssue = getEnglishNameIssue(form.nameEn)
     const emailIssue = form.email ? getInspectionEmailIssue(form.email) : undefined
     const passwordIssue = getPasswordIssue(form.password)
     const passwordConfirmationIssue = getPasswordConfirmationIssue(form.password, form.passwordConfirmation)
 
-    if (nameKhIssue) issues.push(nameKhIssue)
+    if (!familyNameKh && !givenNameKh) {
+      issues.push('inspection_name_kh_required')
+    } else {
+      if (!familyNameKh) issues.push('inspection_family_name_kh_required')
+      if (!givenNameKh) issues.push('inspection_given_name_kh_required')
+    }
+    if (familyNameKh && givenNameKh) {
+      const nameKhIssue = getKhmerNameIssue(combineKhmerName(familyNameKh, givenNameKh))
+      if (nameKhIssue) issues.push(nameKhIssue)
+    }
     if (nameEnIssue) issues.push(nameEnIssue)
     if (!form.phone) issues.push('inspection_phone')
     if (form.phone && !isInspectionPhone(form.phone)) issues.push('inspection_phone_invalid')
@@ -65,7 +76,7 @@
     try {
       const identifier = form.phone || form.email
       await authStore.register({
-        nameKh: form.nameKh,
+        nameKh: combineKhmerName(form.familyNameKh, form.givenNameKh),
         nameEn: form.nameEn || null,
         phone: form.phone || undefined,
         email: form.email || undefined,
@@ -98,9 +109,14 @@
 
     <v-form @submit.prevent="register">
       <v-row dense>
-        <v-col cols="12">
-          <v-text-field v-model.trim="form.nameKh" class="inspection-required-field" maxlength="150" prepend-inner-icon="mdi-account-outline" required variant="outlined">
-            <template #label>{{ $t('inspection_name_kh') }} <span class="inspection-required-mark">*</span></template>
+        <v-col cols="12" sm="6">
+          <v-text-field v-model.trim="form.familyNameKh" class="inspection-required-field" maxlength="150" prepend-inner-icon="mdi-account-outline" required variant="outlined">
+            <template #label>{{ $t('inspection_family_name_kh') }} <span class="inspection-required-mark">*</span></template>
+          </v-text-field>
+        </v-col>
+        <v-col cols="12" sm="6">
+          <v-text-field v-model.trim="form.givenNameKh" class="inspection-required-field" maxlength="150" prepend-inner-icon="mdi-account-outline" required variant="outlined">
+            <template #label>{{ $t('inspection_given_name_kh') }} <span class="inspection-required-mark">*</span></template>
           </v-text-field>
         </v-col>
         <v-col cols="12">

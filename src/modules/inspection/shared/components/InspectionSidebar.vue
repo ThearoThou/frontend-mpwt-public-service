@@ -75,7 +75,7 @@
   .inspection-sidebar :deep(.v-navigation-drawer__append) { background: #2a3472; border-top: 1px solid rgba(255, 255, 255, .2); flex: 0 0 auto; }
   .sidebar-brand { padding-bottom: 8px !important; text-align: center; }
   .sidebar-logo { width: 64px; max-height: 64px; }
-  .sidebar-ministry { color: white; font-family: 'Moul', 'Siemreap', sans-serif !important; font-size: 1.05rem; font-weight: 400 !important; line-height: 1.7; }
+  .sidebar-ministry { color: white; font-family: 'Moul', Calibri, 'Siemreap', sans-serif !important; font-size: 1.05rem; font-weight: 400 !important; line-height: 1.7; }
   .sidebar-ministry-subtitle { color: white; font-size: .75rem; font-weight: 400 !important; letter-spacing: .02em; line-height: 1.7; margin-inline: auto; max-width: none; text-align: center; white-space: nowrap; }
   .sidebar-navigation { flex: 1 1 auto; overflow-y: auto; }
   .sidebar-navigation :deep(.v-list-item) { min-height: 68px; border-radius: 10px; font-weight: 700; overflow: visible; }

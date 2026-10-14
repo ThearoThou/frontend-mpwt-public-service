@@ -1,4 +1,4 @@
-import type { AuthSession, CitizenProfileUpdateInput, CurrentUser, LoginInput, PasswordResetVerifyResponse, RegisterInput, RegistrationVerificationResponse } from '../types/auth.types'
+import type { AuthSession, ChangePasswordInput, CitizenProfileUpdateInput, CurrentUser, LoginInput, PasswordResetVerifyResponse, RegisterInput, RegistrationVerificationResponse } from '../types/auth.types'
 import { clearInspectionAccessToken, setInspectionAccessToken, setInspectionAuthStateHandlers } from '@/services/http'
 import { inspectionAuthService } from '../services/auth.service'
 
@@ -79,11 +79,13 @@ export const useInspectionAuthStore = defineStore('inspection-auth', () => {
   }
 
   async function updateCitizenProfile (input: CitizenProfileUpdateInput) {
-    const profile = await inspectionAuthService.updateCitizenProfile(input)
-    if (currentUser.value !== null) {
-      currentUser.value = { ...currentUser.value, citizenProfile: profile }
-    }
-    return profile
+    const current = await inspectionAuthService.updateCitizenProfile(input)
+    currentUser.value = current
+    return current
+  }
+
+  async function changePassword (input: ChangePasswordInput) {
+    await applySession(await inspectionAuthService.changePassword(input))
   }
 
   function clearSession () {
@@ -180,5 +182,5 @@ export const useInspectionAuthStore = defineStore('inspection-auth', () => {
     }
   }
 
-  return { accessToken, applySession, clearPasswordResetVerification, clearRegistrationVerification, clearSession, currentUser, hasRestoredSession, isAuthenticated, isCitizen, login, logout, logoutInProgress, passwordResetAuthorization, passwordResetRequest, register, registrationVerification, requestPasswordReset, resendRegistrationVerification, restoreSession, setPasswordResetAuthorization, updateCitizenProfile }
+  return { accessToken, applySession, changePassword, clearPasswordResetVerification, clearRegistrationVerification, clearSession, currentUser, hasRestoredSession, isAuthenticated, isCitizen, login, logout, logoutInProgress, passwordResetAuthorization, passwordResetRequest, register, registrationVerification, requestPasswordReset, resendRegistrationVerification, restoreSession, setPasswordResetAuthorization, updateCitizenProfile }
 })

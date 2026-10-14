@@ -25,6 +25,8 @@
 <style scoped>
   .inspection-layout {
     min-height: 100vh;
+    /* Keep document scrolling available for native sticky renewal panels. */
+    overflow: clip !important;
   }
 
   .inspection-main {

@@ -35,7 +35,6 @@
     <div class="inspection-header-actions">
       <v-btn aria-label="Notifications" icon="mdi-bell-outline" to="/services/inspection/notifications" />
       <LanguageSwitcher display="flags" />
-      <v-btn aria-label="Theme" icon="mdi-weather-night" />
 
       <v-menu>
         <template #activator="{ props }">
@@ -68,7 +67,7 @@
 
   .inspection-header-title {
     color: #10172d;
-    font-family: 'Siemreap', sans-serif !important;
+    font-family: Calibri, 'Siemreap', sans-serif !important;
     font-size: clamp(1rem, 1.3vw, 1.4rem);
     font-weight: 600 !important;
     line-height: 1.5;

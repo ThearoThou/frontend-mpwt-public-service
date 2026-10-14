@@ -1,12 +1,26 @@
 import html2canvas from 'html2canvas'
 import { jsPDF } from 'jspdf'
 
-const PDF_CAPTURE_SCALE = 1.5
-const PDF_JPEG_QUALITY = 0.9
+const PDF_CAPTURE_SCALE = 2.5
+const PDF_JPEG_QUALITY = 0.98
+const PDF_JPEG_MIN_QUALITY = 0.88
+const PDF_MAX_IMAGE_BYTES = 1_500_000
 
 interface IsolatedPdfDocument {
   elements: HTMLElement[]
   iframe: HTMLIFrameElement
+}
+
+function canvasToSizeLimitedJpeg (canvas: HTMLCanvasElement): string {
+  let quality = PDF_JPEG_QUALITY
+  let image = canvas.toDataURL('image/jpeg', quality)
+
+  while (image.length * 0.75 > PDF_MAX_IMAGE_BYTES && quality > PDF_JPEG_MIN_QUALITY) {
+    quality = Math.max(PDF_JPEG_MIN_QUALITY, quality - 0.03)
+    image = canvas.toDataURL('image/jpeg', quality)
+  }
+
+  return image
 }
 
 async function waitForImages (element: HTMLElement): Promise<void> {
@@ -74,7 +88,7 @@ function copyRootAttributes (source: HTMLElement, target: HTMLElement): void {
   }
 }
 
-async function createIsolatedPdfDocument (elements: HTMLElement[]): Promise<IsolatedPdfDocument> {
+async function createIsolatedPdfDocument (elements: HTMLElement[], captureWidths: Array<number | undefined> = []): Promise<IsolatedPdfDocument> {
   const iframe = document.createElement('iframe')
   iframe.setAttribute('aria-hidden', 'true')
   iframe.tabIndex = -1
@@ -110,10 +124,10 @@ async function createIsolatedPdfDocument (elements: HTMLElement[]): Promise<Isol
     renderRoot.style.display = 'block'
     isolatedDocument.body.append(renderRoot)
 
-    const clonedElements = elements.map(element => {
+    const clonedElements = elements.map((element, index) => {
       const clone = element.cloneNode(true) as HTMLElement
       clone.style.boxSizing = 'border-box'
-      clone.style.width = `${element.getBoundingClientRect().width}px`
+      clone.style.width = `${captureWidths[index] ?? element.getBoundingClientRect().width}px`
       renderRoot.append(clone)
       return clone
     })
@@ -131,13 +145,13 @@ async function createIsolatedPdfDocument (elements: HTMLElement[]): Promise<Isol
   }
 }
 
-export async function downloadDocumentsPdf (elements: HTMLElement[], filename: string): Promise<void> {
+export async function downloadDocumentsPdf (elements: HTMLElement[], filename: string, captureWidths: Array<number | undefined> = []): Promise<void> {
   const scrollX = window.scrollX
   const scrollY = window.scrollY
   let isolatedDocument: IsolatedPdfDocument | undefined
 
   try {
-    isolatedDocument = await createIsolatedPdfDocument(elements)
+    isolatedDocument = await createIsolatedPdfDocument(elements, captureWidths)
     const pdf = new jsPDF({ compress: true, format: 'a4', orientation: 'portrait', unit: 'mm' })
     const pageWidth = 210
     const pageHeight = 297
@@ -149,7 +163,7 @@ export async function downloadDocumentsPdf (elements: HTMLElement[], filename: s
         useCORS: true,
       })
       const imageHeight = (canvas.height * pageWidth) / canvas.width
-      const image = canvas.toDataURL('image/jpeg', PDF_JPEG_QUALITY)
+      const image = canvasToSizeLimitedJpeg(canvas)
 
       if (index > 0) {
         pdf.addPage()
@@ -177,6 +191,6 @@ export async function downloadDocumentsPdf (elements: HTMLElement[], filename: s
   }
 }
 
-export async function downloadDocumentPdf (element: HTMLElement, filename: string): Promise<void> {
-  await downloadDocumentsPdf([element], filename)
+export async function downloadDocumentPdf (element: HTMLElement, filename: string, captureWidth?: number): Promise<void> {
+  await downloadDocumentsPdf([element], filename, [captureWidth])
 }

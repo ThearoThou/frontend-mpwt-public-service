@@ -1,35 +1,36 @@
 <script setup lang="ts">
-  import type { RenewalApplication } from '@/modules/inspection/citizen/applications/types/application.types'
+  import type { RenewalApplication, RenewalApplicationListItem } from '@/modules/inspection/citizen/applications/types/application.types'
   import type { Vehicle } from '@/modules/inspection/citizen/vehicles/types/vehicle.types'
-  import { isAxiosError } from 'axios'
   import { useI18n } from 'vue-i18n'
-  import { useRouter } from 'vue-router'
   import heroPickup from '@/assets/inspection/vehicle-inspection-hero-pickup.png'
   import heroSuv from '@/assets/inspection/vehicle-inspection-hero-suv.png'
   import heroDefault from '@/assets/inspection/vehicle-inspection-hero.png'
   import { useInspectionAuthStore } from '@/modules/inspection/auth/stores/auth.store'
   import { inspectionApplicationService } from '@/modules/inspection/citizen/applications/services/application.service'
-  import { findUnfinishedApplication, renewalApplicationStatusBadge, renewalEntryAction, renewalReminderBadge, unfinishedApplicationMessageKey } from '@/modules/inspection/citizen/renewal/utils/renewal-entry-action'
+  import { citizenCardCycleForVehicle, citizenCardIdentifierLabel, resolveCitizenVehicleRenewalStatus } from '@/modules/inspection/citizen/applications/utils/citizen-application-status'
+  import RenewalStartConfirmationDialog from '@/modules/inspection/citizen/renewal/components/RenewalStartConfirmationDialog.vue'
+  import { useRenewalEntryFlow } from '@/modules/inspection/citizen/renewal/composables/use-renewal-entry-flow'
+  import { findUnfinishedApplication, renewalEntryAction } from '@/modules/inspection/citizen/renewal/utils/renewal-entry-action'
+  import CitizenVehicleCard from '@/modules/inspection/citizen/vehicles/components/CitizenVehicleCard.vue'
   import { inspectionVehicleService } from '@/modules/inspection/citizen/vehicles/services/vehicle.service'
   import { inspectionExpiryState, type InspectionExpiryState } from '@/modules/inspection/citizen/vehicles/utils/inspection-expiry-status'
+  import { formatProvince } from '@/modules/inspection/citizen/vehicles/utils/province-label'
+  import { sortCitizenVehicleCards } from '@/modules/inspection/citizen/vehicles/utils/vehicle-card-priority'
   import { getVehicleTypeIcon } from '@/modules/inspection/citizen/vehicles/utils/vehicle-type-icon'
-  import { formatVehicleType } from '@/modules/inspection/citizen/vehicles/utils/vehicle-type-label'
+  import { formatDisplayDate } from '@/modules/inspection/shared/utils/display-date'
 
-  type ApiErrorResponse = { code?: string }
   type IdleCallbackWindow = Window & {
     requestIdleCallback?: (callback: () => void, options?: { timeout?: number }) => number
     cancelIdleCallback?: (handle: number) => void
   }
 
   const { locale, t } = useI18n()
-  const router = useRouter()
   const authStore = useInspectionAuthStore()
   const sessionCheckComplete = ref(false)
   const vehicles = ref<Vehicle[]>([])
-  const applications = ref<RenewalApplication[]>([])
+  const applications = ref<RenewalApplicationListItem[]>([])
   const loadingVehicles = ref(false)
   const vehicleLoadError = ref(false)
-  const renewingVehicleIds = ref<Set<string>>(new Set())
   const renewalError = ref<string | null>(null)
   const heroBackgrounds = [heroDefault, heroSuv, heroPickup]
   const activeHeroBackground = ref(0)
@@ -37,7 +38,11 @@
   let heroRotationTimer: ReturnType<typeof setInterval> | undefined
   let routePrefetchTimer: ReturnType<typeof setTimeout> | undefined
   let routePrefetchIdleCallback: number | undefined
-  const visibleVehicles = computed(() => vehicles.value.slice(0, 3))
+  const visibleVehicles = computed(() => sortCitizenVehicleCards(vehicles.value, applications.value).slice(0, 3))
+  const { confirmationLoading, confirmationOpen, confirmRenewal, isRenewingVehicle, startOrContinueRenewal } = useRenewalEntryFlow({
+    onApplicationsLoaded: loaded => applications.value = loaded,
+    onError: messageKey => renewalError.value = messageKey || null,
+  })
 
   onMounted(async () => {
     startHeroRotation()
@@ -90,7 +95,7 @@
     try {
       const [vehicleResponse, citizenApplications] = await Promise.all([
         inspectionVehicleService.lookup({ sortBy: 'inspectionExpiryDate', sortOrder: 'asc' }),
-        inspectionApplicationService.listCitizenApplications(),
+        inspectionApplicationService.listCitizenApplications({ limit: 100, sortOrder: 'desc' }),
       ])
       vehicles.value = vehicleResponse.data
       applications.value = citizenApplications.data
@@ -109,18 +114,12 @@
     return `inspection_dashboard_${getInspectionState(vehicle)}`
   }
 
-  function getInspectionStateColor (vehicle: Vehicle) {
-    return { expired: 'error', expiring: 'warning', valid: 'success' }[getInspectionState(vehicle)]
-  }
-
-  function getInspectionStateIcon (vehicle: Vehicle) {
-    return getInspectionState(vehicle) === 'valid' ? 'mdi-shield-check-outline' : 'mdi-calendar-alert-outline'
+  function getInspectionStateColor (vehicle: Vehicle): 'error' | 'warning' | 'success' {
+    return ({ expired: 'error', expiring: 'warning', valid: 'success' } as const)[getInspectionState(vehicle)]
   }
 
   function formatInspectionDate (value: string) {
-    return new Intl.DateTimeFormat(locale.value === 'kh' ? 'km-KH' : 'en-GB', {
-      day: '2-digit', month: 'short', year: 'numeric',
-    }).format(new Date(value))
+    return formatDisplayDate(value)
   }
 
   function formatVehicleModel (vehicle: Vehicle) {
@@ -129,12 +128,15 @@
 
   function plateTypeLabel (vehicle: Vehicle) {
     if (vehicle.plateCategory === 'PERSONALIZED_CAMBODIA') return t('inspection_plate_cambodia')
-    if (vehicle.plateProvince === 'ភ្នំពេញ' || vehicle.plateProvince?.toLowerCase() === 'phnom penh') return t('inspection_plate_phnom_penh')
-    return vehicle.plateProvince || t('inspection_plate_category_province')
+    return formatProvince(vehicle.plateProvince, locale.value)
   }
 
   function unfinishedApplication (vehicle: Vehicle): RenewalApplication | undefined {
     return findUnfinishedApplication(applications.value, vehicle.id)
+  }
+
+  function vehicleApplication (vehicle: Vehicle): RenewalApplicationListItem | undefined {
+    return citizenCardCycleForVehicle(applications.value, vehicle.id)
   }
 
   function vehicleRenewalAction (vehicle: Vehicle) {
@@ -142,102 +144,27 @@
   }
 
   function vehicleRenewalStatus (vehicle: Vehicle) {
-    const application = unfinishedApplication(vehicle)
-    return application === undefined
-      ? renewalReminderBadge(vehicle.inspectionExpiryDate)
-      : renewalApplicationStatusBadge(application)
+    return resolveCitizenVehicleRenewalStatus(vehicleApplication(vehicle), vehicle.inspectionExpiryDate)
+  }
+
+  function vehicleRenewalStatusPresentation (vehicle: Vehicle) {
+    const status = vehicleRenewalStatus(vehicle)
+    return status === undefined
+      ? undefined
+      : { ...status, label: t(status.labelKey), modifier: status.color }
+  }
+
+  function vehicleIdentifier (vehicle: Vehicle, identifier: 'certificate' | 'transaction') {
+    return citizenCardIdentifierLabel(vehicleApplication(vehicle), identifier)
   }
 
   async function handleRenewalAction (vehicle: Vehicle) {
-    const application = unfinishedApplication(vehicle)
-    const action = renewalEntryAction(application)
-
-    if (action.kind === 'start') {
-      await continueRenewal(vehicle)
-      return
-    }
-
-    if (application === undefined) return
-
-    await router.push(action.kind === 'resume'
-      ? { path: '/services/inspection/renewal/documents', query: { applicationId: application.id } }
-      : { path: `/services/inspection/applications/${application.id}` })
-  }
-
-  function isRenewingVehicle (vehicleId: string): boolean {
-    return renewingVehicleIds.value.has(vehicleId)
-  }
-
-  function setVehicleRenewing (vehicleId: string, renewing: boolean) {
-    const renewingIds = new Set(renewingVehicleIds.value)
-
-    if (renewing) renewingIds.add(vehicleId)
-    else renewingIds.delete(vehicleId)
-
-    renewingVehicleIds.value = renewingIds
-  }
-
-  async function continueRenewal (vehicle: Vehicle) {
-    if (isRenewingVehicle(vehicle.id)) return
-
-    setVehicleRenewing(vehicle.id, true)
-    renewalError.value = null
-    try {
-      const application = await inspectionApplicationService.createDraft(vehicle.id)
-      await router.push({ path: '/services/inspection/renewal/documents', query: { applicationId: application.id } })
-    } catch (error) {
-      if (isUnfinishedApplicationError(error)) {
-        await handleUnfinishedApplication(vehicle.id)
-        return
-      }
-
-      renewalError.value = getRenewalErrorMessage(error)
-    } finally {
-      setVehicleRenewing(vehicle.id, false)
-    }
-  }
-
-  function isUnfinishedApplicationError (error: unknown): boolean {
-    return isAxiosError<ApiErrorResponse>(error)
-      && error.response?.data?.code === 'UNFINISHED_APPLICATION_ALREADY_EXISTS'
-  }
-
-  function getRenewalErrorMessage (error: unknown): string {
-    if (isAxiosError<ApiErrorResponse>(error)
-      && error.response?.data?.code === 'VEHICLE_CLASSIFICATION_INCOMPLETE') {
-      return 'inspection_vehicle_classification_incomplete'
-    }
-
-    if (isAxiosError<ApiErrorResponse>(error)
-      && error.response?.data?.code === 'VEHICLE_NOT_YET_ELIGIBLE_FOR_RENEWAL') {
-      return 'inspection_renewal_not_yet_eligible'
-    }
-
-    return 'inspection_draft_creation_error'
-  }
-
-  async function handleUnfinishedApplication (vehicleId: string) {
-    try {
-      const citizenApplications = await inspectionApplicationService.listCitizenApplications()
-      applications.value = citizenApplications.data
-      const unfinishedApplication = findUnfinishedApplication(citizenApplications.data, vehicleId)
-
-      if (unfinishedApplication?.status === 'DRAFT') {
-        await router.push({ path: '/services/inspection/renewal/documents', query: { applicationId: unfinishedApplication.id } })
-        return
-      }
-
-      renewalError.value = unfinishedApplicationMessageKey(unfinishedApplication)
-      return
-    } catch {
-      // Fall through to the localized error below.
-    }
-
-    renewalError.value = 'inspection_unfinished_application_error'
+    await startOrContinueRenewal(vehicle)
   }
 </script>
 
 <template>
+  <!-- eslint-disable vue/padding-line-between-tags -->
   <section class="citizen-auth-type-scale dashboard-view">
     <v-sheet class="dashboard-hero" rounded="xl">
       <Transition mode="out-in" name="dashboard-hero-fade">
@@ -301,7 +228,10 @@
       </v-card>
 
       <div class="d-flex flex-wrap align-center justify-space-between ga-3 mt-6 mb-3">
-        <h2 class="dashboard-vehicles-heading text-h6">{{ $t('inspection_dashboard_vehicle_overview') }}</h2>
+        <h2 class="dashboard-vehicles-heading text-h6">
+          <v-icon icon="mdi-car-outline" size="26" />
+          {{ $t('inspection_dashboard_vehicle_overview') }}
+        </h2>
 
         <v-btn
           append-icon="mdi-chevron-right"
@@ -316,69 +246,29 @@
       <v-alert v-else-if="vehicleLoadError" type="error">{{ $t('inspection_dashboard_vehicle_load_error') }}</v-alert>
       <v-alert v-else-if="vehicles.length === 0" type="info">{{ $t('inspection_dashboard_no_vehicles') }}</v-alert>
 
-      <v-row v-else>
-        <v-col v-for="vehicle in visibleVehicles" :key="vehicle.id" cols="12" lg="4">
-          <v-card border class="vehicle-dashboard-card d-flex flex-column pa-3 pa-md-4" elevation="0" rounded="xl">
-            <div class="d-flex align-start justify-space-between ga-3">
-              <v-avatar color="primary" :icon="getVehicleTypeIcon(vehicle.vehicleType)" size="56" variant="tonal" />
-
-              <div class="dashboard-vehicle-statuses">
-                <div class="dashboard-inspection-status-row">
-                  <v-chip :class="['dashboard-inspection-status', `dashboard-inspection-status--${getInspectionState(vehicle)}`]" :color="getInspectionStateColor(vehicle)" :prepend-icon="getInspectionStateIcon(vehicle)" variant="tonal">
-                    {{ $t(getInspectionStateKey(vehicle)) }}
-                  </v-chip>
-                </div>
-
-                <div class="dashboard-renewal-status-slot">
-                  <v-chip
-                    v-if="vehicleRenewalStatus(vehicle)"
-                    :class="['dashboard-renewal-status', `dashboard-renewal-status--${vehicleRenewalStatus(vehicle)?.color}`]"
-                    :color="vehicleRenewalStatus(vehicle)?.color"
-                    :prepend-icon="vehicleRenewalStatus(vehicle)?.icon"
-                    size="small"
-                    variant="tonal"
-                  >
-                    {{ $t(vehicleRenewalStatus(vehicle)?.labelKey ?? '') }}
-                  </v-chip>
-                </div>
-              </div>
-            </div>
-
-            <div class="mt-4">
-              <h3 class="dashboard-vehicle-plate mb-1"><span>{{ plateTypeLabel(vehicle) }}</span>{{ vehicle.plateNumber }}</h3>
-              <p class="dashboard-vehicle-model text-primary mb-2">{{ formatVehicleModel(vehicle) }}</p>
-              <p class="dashboard-vehicle-type text-medium-emphasis mb-4">{{ formatVehicleType(vehicle.vehicleType, t) }}</p>
-
-              <v-sheet class="inspection-expiry d-flex align-center ga-2 px-3 py-3" :class="`inspection-expiry--${getInspectionState(vehicle)}`" rounded="lg">
-                <v-icon icon="mdi-calendar-month-outline" />
-                <span>{{ $t('inspection_dashboard_expiry_date') }}: <strong>{{ formatInspectionDate(vehicle.inspectionExpiryDate) }}</strong></span>
-              </v-sheet>
-            </div>
-
-            <div class="dashboard-vehicle-actions mt-auto pt-4">
-              <v-btn
-                class="dashboard-vehicle-actions__details"
-                :class="{ 'dashboard-vehicle-actions__details--only': !unfinishedApplication(vehicle) && getInspectionState(vehicle) === 'valid' }"
-                prepend-icon="mdi-eye-outline"
-                :to="`/services/inspection/vehicles/${vehicle.id}`"
-                variant="outlined"
-              >{{ $t('inspection_dashboard_view_vehicle') }}</v-btn>
-
-              <v-btn
-                v-if="unfinishedApplication(vehicle) || getInspectionState(vehicle) !== 'valid'"
-                class="dashboard-vehicle-actions__renew"
-                color="primary"
-                :loading="isRenewingVehicle(vehicle.id)"
-                :prepend-icon="vehicleRenewalAction(vehicle).icon"
-                @click="handleRenewalAction(vehicle)"
-              >
-                {{ $t(vehicleRenewalAction(vehicle).labelKey) }}
-              </v-btn>
-            </div>
-          </v-card>
-        </v-col>
-      </v-row>
+      <div v-else class="vehicle-grid">
+        <CitizenVehicleCard
+          v-for="vehicle in visibleVehicles"
+          :key="vehicle.id"
+          :action-icon="vehicleRenewalAction(vehicle).icon"
+          :action-label="$t(vehicleRenewalAction(vehicle).labelKey)"
+          :action-loading="isRenewingVehicle(vehicle.id)"
+          :certificate-number="vehicleIdentifier(vehicle, 'certificate')"
+          :expiry-date="formatInspectionDate(vehicle.inspectionExpiryDate)"
+          :has-certificate-number="Boolean(vehicleApplication(vehicle)?.certificate?.certificateNumber)"
+          :has-transaction-number="Boolean(vehicleApplication(vehicle)?.payment?.transactionNumber)"
+          :inspection-status="{ color: getInspectionStateColor(vehicle), label: $t(getInspectionStateKey(vehicle)), modifier: getInspectionState(vehicle) }"
+          :plate-label="plateTypeLabel(vehicle)"
+          :renewal-status="vehicleRenewalStatusPresentation(vehicle)"
+          :transaction-number="vehicleIdentifier(vehicle, 'transaction')"
+          :vehicle="vehicle"
+          :vehicle-icon="getVehicleTypeIcon(vehicle.vehicleType)"
+          :vehicle-name="formatVehicleModel(vehicle)"
+          @renew="handleRenewalAction(vehicle)"
+        />
+      </div>
     </template>
+    <RenewalStartConfirmationDialog v-model="confirmationOpen" :loading="confirmationLoading" @confirm="confirmRenewal" />
   </section>
 </template>
 
@@ -407,7 +297,7 @@
   .dashboard-hero-fade-enter-from, .dashboard-hero-fade-leave-to { opacity: 0; }
   .dashboard-hero__content { align-self: center; max-width: 720px; position: relative; z-index: 1; }
   .dashboard-hero__eyebrow { color: #d7ddfb; font-size: .94rem !important; font-weight: 400 !important; letter-spacing: .02em; line-height: 1.5; }
-  .dashboard-hero-title { font-family: 'Moul', 'Siemreap', sans-serif !important; font-size: clamp(1.65rem, 2.2vw, 2.25rem); font-weight: 400 !important; letter-spacing: -.01em; line-height: 1.2; max-width: 700px; }
+  .dashboard-hero-title { font-family: 'Moul', Calibri, 'Siemreap', sans-serif !important; font-size: clamp(1.65rem, 2.2vw, 2.25rem); font-weight: 400 !important; letter-spacing: -.01em; line-height: 1.2; max-width: 700px; }
   .dashboard-hero-copy { color: #d1d8f5; font-size: .94rem; font-weight: 400 !important; line-height: 1.6; max-width: 660px; }
   .dashboard-view :deep(.dashboard-hero__action.v-btn) { color: #1f2d68 !important; font-size: .9rem !important; font-weight: 400 !important; letter-spacing: 0; min-height: 48px; padding-inline: 26px; }
   .dashboard-view .dashboard-hero :deep(.dashboard-hero__action.v-btn .v-btn__content) { font-size: .9rem !important; }
@@ -415,6 +305,7 @@
   .dashboard-view .dashboard-notice :deep(.text-h6) { font-size: 1rem !important; font-weight: 400 !important; }
   .dashboard-view .dashboard-notice :deep(.text-body-1) { color: #4d5261 !important; font-size: .9rem !important; font-weight: 400 !important; opacity: 1 !important; }
   .dashboard-notice:hover { border-color: #2a3472 !important; transform: translateY(-1px); }
+  .dashboard-vehicles-heading { align-items: center; display: flex; gap: 9px; }
   .dashboard-vehicles-heading, .dashboard-view-all { font-weight: 400 !important; }
   .dashboard-vehicles-heading { font-size: 1.05rem !important; }
   .dashboard-view-all { font-size: .86rem !important; }
@@ -436,16 +327,45 @@
   .dashboard-vehicle-plate { align-items: center; color: #20212a; display: flex; flex-wrap: wrap; font-size: clamp(1.06rem, 1.18vw, 1.2rem); font-weight: 400; gap: 7px; line-height: 1.3; }
   .dashboard-vehicle-plate span { color: #3a3b43; font-weight: 400; }
   .dashboard-vehicle-model { font-size: .96rem !important; font-weight: 400; line-height: 1.45; }
-  .dashboard-vehicle-type { font-size: .94rem !important; line-height: 1.45; }
+  .dashboard-vehicle-type { font-size: .94rem !important; font-weight: 450; line-height: 1.45; }
+  .dashboard-vehicle-summary { border-top: 1px solid #e2e3e9; margin-bottom: 14px; }
+  .dashboard-vehicle-summary > div { align-items: center; border-bottom: 1px solid #e2e3e9; display: grid; gap: 10px; grid-template-columns: minmax(105px, 1fr) minmax(120px, 1.25fr); min-height: 42px; }
+  .dashboard-vehicle-summary dt { color: #5d6170; font-size: .78rem; font-weight: 600; }
+  .dashboard-vehicle-summary dd { color: #252934; font-size: .82rem; font-weight: 700; margin: 0; overflow-wrap: anywhere; text-align: right; }
+  .dashboard-vehicle-summary__placeholder { color: #252934 !important; font-style: normal; font-weight: 400 !important; }
+  .dashboard-vehicle-summary dd :deep(.v-chip) { font-size: .76rem !important; max-width: 100%; }
+  .dashboard-vehicle-summary__inspection-status { border-top: 1px solid #e2e3e9; margin-top: 10px; }
   .dashboard-vehicle-actions { display: grid; gap: 12px; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); }
   .dashboard-vehicle-actions :deep(.v-btn) { font-size: .86rem; letter-spacing: 0; min-width: 0; padding-inline: 10px; text-transform: none; }
   .dashboard-vehicle-actions__details--only { grid-column: 1 / -1; }
   .dashboard-vehicle-actions__renew { font-size: .86rem; letter-spacing: 0; }
   .dashboard-vehicle-actions__renew :deep(.v-btn__prepend) { margin-inline-end: 6px; }
   .inspection-expiry { background: #f4f2f6; color: #363640; font-size: .94rem; }
+  .inspection-expiry > span { font-size: .85rem; }
+  .inspection-expiry > span strong { font-size: .95rem; }
   .inspection-expiry--expired { background: #fee2e2; color: #991b1b; }
   .inspection-expiry--expiring { background: #fff1cf; color: #92400e; }
   .inspection-expiry--valid { background: #dcfce7; color: #166534; }
+
+  /* Shared visual treatment with the My Vehicles cards. */
+  .vehicle-grid { display: grid; gap: 20px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .vehicle-card { background: #fff; border: 1px solid #d4d5de; border-radius: 20px; box-shadow: 0 6px 16px rgba(31, 36, 69, .05); display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
+  .vehicle-card__main { display: flex; flex: 1; flex-direction: column; padding: 16px 18px 13px; }
+  .vehicle-card__icon { background: #dbe3ff; color: #142c68; }
+  .vehicle-inspection-status-row { display: flex; justify-content: flex-end; }
+  .vehicle-renewal-state, .vehicle-state { font-size: .82rem !important; font-weight: 800; height: 28px !important; min-height: 28px; }
+  .vehicle-state { font-size: .95rem !important; }
+  .vehicle-state :deep(.v-chip__content), .vehicle-renewal-state :deep(.v-chip__content) { font-size: .82rem !important; line-height: 1.5; }
+  .vehicle-renewal-state--info { background: #dbeeff !important; color: #075985 !important; }.vehicle-renewal-state--deep-purple { background: #ede9fe !important; color: #5b21b6 !important; }.vehicle-renewal-state--secondary { background: #f0e7ff !important; color: #6b21a8 !important; }.vehicle-renewal-state--success, .vehicle-state--valid { background: #dcfce7 !important; color: #166534 !important; }.vehicle-renewal-state--warning, .vehicle-state--expiring { background: #fff1cf !important; color: #92400e !important; }.vehicle-renewal-state--error, .vehicle-state--expired { background: #fee2e2 !important; color: #991b1b !important; }
+  .vehicle-state--expired { background: transparent !important; color: #b42318 !important; }
+  .vehicle-card__title { margin-top: 11px; }.vehicle-card__title h2 { align-items: center; color: #171b28 !important; display: flex; flex-wrap: wrap; font-size: 1rem !important; font-weight: 400 !important; gap: 7px; line-height: 1.25; }.vehicle-plate-label { color: #171b28 !important; font: inherit; font-weight: 400 !important; }.vehicle-card__title p { color: #173d8d !important; font-size: .95rem !important; font-weight: 400 !important; line-height: 1.45; margin-top: 3px; }
+  .vehicle-facts { margin-top: 12px; }.vehicle-facts > div { align-items: center; border-bottom: 1px solid #e2e3e9; display: grid; gap: 12px; grid-template-columns: minmax(86px, 1fr) minmax(106px, 1.3fr); min-height: 48px; }.vehicle-facts dt { color: #4f5361; font-size: .85rem !important; font-weight: 600; line-height: 1.45; }.vehicle-facts dd { color: #181c27; font-size: .95rem !important; font-weight: 800; line-height: 1.45; margin: 0; overflow-wrap: anywhere; text-align: right; }.vehicle-facts__placeholder { color: #252934 !important; font-style: normal; font-weight: 400 !important; }
+  .vehicle-facts__type { align-items: start !important; grid-template-columns: minmax(82px, .75fr) minmax(175px, 1.75fr) !important; padding-block: 10px; }.vehicle-facts__type dt { color: #4f5361; padding-top: 2px; }.vehicle-facts__type dd { color: #181c27; font-size: .91rem !important; line-height: 1.5; text-align: right; }.vehicle-facts__type + .vehicle-facts__identifier, .vehicle-facts__inspection-status { border-top: 1px solid #e2e3e9; margin-top: 10px; }
+  .vehicle-facts__expiry { background: transparent; border-bottom: 1px solid #e2e3e9 !important; border-radius: 0; grid-template-columns: minmax(86px, 1fr) minmax(106px, 1.3fr) !important; margin-top: 0; padding-inline: 0; }.vehicle-facts__expiry dt { color: #4f5361; }.vehicle-facts__expiry--valid, .vehicle-facts__expiry--expired, .vehicle-facts__expiry--expiring { background: transparent; }.vehicle-facts__expiry--valid dd { color: #166534; }.vehicle-facts__expiry--expired dd { color: #991b1b; }.vehicle-facts__expiry--expiring dd { color: #92400e; }
+  .vehicle-card__actions { background: #fafafd; border-top: 1px solid #d7d8e1; display: flex; gap: 8px; margin-top: auto; padding: 10px 12px; }.vehicle-card__actions :deep(.v-btn) { font-size: .85rem !important; font-weight: 800; letter-spacing: 0; min-height: 39px; text-transform: none; }
+
+  @media (max-width: 1279px) { .vehicle-grid { grid-template-columns: 1fr; } }
+  @media (max-width: 600px) { .dashboard-vehicle-summary > div { align-items: start; grid-template-columns: 1fr; padding-block: 9px; }.dashboard-vehicle-summary dd { text-align: left; }.vehicle-card__main { padding: 22px 20px; }.vehicle-card__actions { flex-direction: column; padding: 16px; }.vehicle-facts > div { align-items: start; grid-template-columns: 1fr; padding-block: 9px; }.vehicle-facts dd { text-align: left; }.vehicle-facts__expiry { grid-template-columns: 1fr !important; } }
 
   @media (max-width: 600px) {
     .dashboard-hero {

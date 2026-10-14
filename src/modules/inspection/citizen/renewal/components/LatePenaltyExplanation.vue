@@ -40,7 +40,7 @@
             details.vehicleClass === 'HEAVY'
               ? 'inspection_late_penalty_heavy_rate'
               : 'inspection_late_penalty_light_rate',
-            { rate: formatNumber(details.dailyRateKhr), currency },
+            { rate: formatNumber(details.dailyRateKhr), currency: '៛' },
           ) }}
         </p>
       </template>
@@ -55,8 +55,8 @@
 <style scoped>
   .late-penalty-explanation { align-items: flex-start; background: #f4f6fb; border: 1px solid #dbe1ee; border-radius: 10px; color: #4b5565; display: flex; gap: 10px; margin-left: auto; margin-top: 16px; max-width: 480px; padding: 12px 14px; text-align: left; width: 100%; }
   .late-penalty-explanation :deep(.v-icon) { color: #53617b; flex: 0 0 auto; margin-top: 2px; }
-  .late-penalty-explanation--penalty { background: #fff1f2; border-color: #fecdd3; color: #b42318; }
-  .late-penalty-explanation--penalty :deep(.v-icon) { color: #d92d20; }
-  .late-penalty-explanation__copy { font-size: .95rem; line-height: 1.5; }
-  .late-penalty-explanation__rate { font-size: .95rem; font-weight: 700; margin-top: 6px; }
+  .late-penalty-explanation--penalty { background: #fff1f2; border-color: #fecdd3; color: rgb(var(--v-theme-error)); }
+  .late-penalty-explanation--penalty :deep(.v-icon) { color: rgb(var(--v-theme-error)); }
+  .late-penalty-explanation__copy { font-size: .85rem; line-height: 1.5; }
+  .late-penalty-explanation__rate { font-size: .85rem; font-weight: 700; margin-top: 6px; }
 </style>

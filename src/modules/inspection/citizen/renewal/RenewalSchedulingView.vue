@@ -9,9 +9,10 @@
   import { useRoute, useRouter } from 'vue-router'
   import { inspectionApplicationService } from '../applications/services/application.service'
   import { inspectionVehicleService } from '../vehicles/services/vehicle.service'
+  import { resolveInspectionCategoryLabel } from '../vehicles/utils/inspection-category-label'
   import { cambodiaToday } from '../vehicles/utils/inspection-expiry-status'
-  import LatePenaltyExplanation from './components/LatePenaltyExplanation.vue'
   import { inspectionSchedulingService } from './services/scheduling.service'
+  import { overdueDayBreakdown } from './utils/late-penalty-display'
   import { prefetchRenewalStep } from './utils/prefetch-renewal-step'
 
   const UUID_V4_PATTERN
@@ -34,6 +35,7 @@
   const stations = ref<InspectionStation[]>([])
   const selectedStationSelection = ref<StationSelection>(NO_STATION_PREFERENCE)
   const selectedDate = ref<string | null>(null)
+  const selectedOptionalService = ref(false)
   const dateMenu = ref(false)
   const loading = ref(true)
   const saving = ref(false)
@@ -78,15 +80,26 @@
     && isWeekdayDate(todayKh.value)
     && !activeHolidayDateSet.value.has(todayKh.value),
   )
-  const stationPreferenceHint = computed(() =>
-    selectedStation.value === null
-      ? t('inspection_scheduling_no_station_preference_hint')
-      : t('inspection_scheduling_selected_station_hint'),
+  const showSameDaySelectionNotice = computed(() =>
+    sameDaySelectionClosed.value && selectedDate.value === todayKh.value,
   )
   const displayedDate = computed(() =>
     selectedDate.value === null ? '' : formatDateInput(selectedDate.value),
   )
   const hasLateFee = computed(() => Number(feeEstimate.value?.lateFee ?? 0) > 0)
+  const penaltyDays = computed(() => feeEstimate.value === null
+    ? 0
+    : overdueDayBreakdown(feeEstimate.value.lateDays).penaltyDays)
+  const displayedServiceFee = computed(() =>
+    selectedOptionalService.value
+      ? Number(feeEstimate.value?.optionalServiceFeeKhr ?? 0)
+      : 0,
+  )
+  const displayedTotal = computed(() =>
+    Number(feeEstimate.value?.inspectionFeeKhr ?? 0)
+    + Number(feeEstimate.value?.lateFee ?? 0)
+    + displayedServiceFee.value,
+  )
 
   function stationName (station: InspectionStation): string {
     return (
@@ -97,8 +110,8 @@
     )
   }
 
-  function formatCurrency (amount: string, currency: string): string {
-    return `${Number(amount).toLocaleString(locale.value === 'kh' ? 'km-KH' : 'en-GB')} ${currency}`
+  function formatCurrency (amount: string | number, _currency?: string): string {
+    return `${Number(amount).toLocaleString(locale.value === 'kh' ? 'km-KH' : 'en-GB')} ៛`
   }
 
   function formatDateInput (value: string): string {
@@ -205,6 +218,9 @@
       stations.value = loadedStations
       vehicle.value = selectedVehicle
       feeEstimate.value = estimate
+      selectedOptionalService.value
+        = estimate?.optionalServiceEligible === true
+          && draft.optionalOversizeServiceSelected
       activeHolidayDateSet.value = new Set(closures.map(closure => closure.closureDate))
       selectedDate.value = draft.preferredInspectionDate
       if (
@@ -223,6 +239,13 @@
       errorMessageKey.value = 'inspection_scheduling_load_error'
     } finally {
       loading.value = false
+    }
+    if (route.query.focus === 'inspection-options') {
+      await nextTick()
+      document.querySelector('#inspection-options')?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+      })
     }
   }
 
@@ -284,6 +307,7 @@
         application.value.id,
         selectedDate.value,
         selectedStationId.value,
+        selectedOptionalService.value,
       )
       await router.push({
         path: '/services/inspection/renewal/review',
@@ -322,7 +346,7 @@
 
 <template>
   <section class="renewal-scheduling mx-auto">
-    <header class="mb-6">
+    <header class="renewal-scheduling__heading mb-6">
       <v-breadcrumbs class="renewal-breadcrumbs px-0 pb-5" density="compact">
         <v-breadcrumbs-item to="/services/inspection/dashboard">{{ $t('inspection_dashboard') }}</v-breadcrumbs-item>
         <v-breadcrumbs-divider icon="mdi-chevron-right" />
@@ -371,7 +395,10 @@
     </section>
 
     <div v-if="errorMessageKey" ref="errorAlert">
-      <v-alert class="mb-5" type="error">{{ $t(errorMessageKey) }}</v-alert>
+      <v-alert
+        :class="['mb-5', { 'scheduling-date-unavailable-alert': errorMessageKey === 'inspection_scheduling_date_unavailable' }]"
+        type="error"
+      >{{ $t(errorMessageKey) }}</v-alert>
     </div>
 
     <v-progress-linear v-if="loading" color="primary" indeterminate />
@@ -380,16 +407,100 @@
 
       <v-row>
         <v-col cols="12" md="8">
-          <v-card border class="mb-5 pa-5 pa-md-6" elevation="0" rounded="xl">
+          <v-card
+            v-if="feeEstimate && vehicle"
+            border
+            class="review-card mb-5 pa-5 pa-md-6"
+            elevation="0"
+            rounded="xl"
+          >
+            <div class="d-flex align-center ga-3 mb-4">
+              <v-avatar color="primary" size="42" variant="tonal"><v-icon icon="mdi-cash-multiple" /></v-avatar>
+
+              <div>
+                <h2 class="text-h6 font-weight-regular mb-1">
+                  {{ $t("inspection_scheduling_fee_title") }}
+                </h2>
+              </div>
+            </div>
+
+            <div class="review-fee-row review-fee-row--category">
+              <span>{{ $t('inspection_payment_inspection_category') }}</span>
+              <strong>{{ resolveInspectionCategoryLabel(vehicle.inspectionCategory, locale) }}</strong>
+            </div>
+
+            <div class="review-fee-row">
+              <span>{{ $t("inspection_scheduling_inspection_fee") }}</span>
+
+              <strong>{{
+                formatCurrency(
+                  feeEstimate.inspectionFeeKhr,
+                  feeEstimate.currency,
+                )
+              }}</strong>
+            </div>
+
+            <div class="review-fee-row review-fee-row--late">
+              <span>
+                {{ $t("inspection_scheduling_late_fee") }}
+                <span v-if="hasLateFee" class="text-error">{{ $t('inspection_late_penalty_days', { days: penaltyDays }) }}</span>
+              </span>
+
+              <strong :class="hasLateFee ? 'review-fee-amount--penalty' : ''">{{
+                formatCurrency(feeEstimate.lateFee, feeEstimate.currency)
+              }}</strong>
+            </div>
+
+            <div
+              v-if="feeEstimate.optionalServiceEligible"
+              class="optional-service mb-4 mt-3"
+            >
+              <v-checkbox
+                v-model="selectedOptionalService"
+                color="primary"
+                hide-details
+              >
+                <template #label>
+                  <span>{{ $t('inspection_optional_oversize_service') }}</span>
+                </template>
+              </v-checkbox>
+
+              <p class="text-body-2 text-medium-emphasis ml-10 mb-1">
+                {{ $t('inspection_optional_oversize_service_description') }}
+              </p>
+
+              <strong class="ml-10">{{ formatCurrency(feeEstimate.optionalServiceFeeKhr) }}</strong>
+            </div>
+
+            <div
+              v-if="feeEstimate.optionalServiceEligible && selectedOptionalService"
+              class="review-fee-row"
+            >
+              <span>{{ $t('inspection_scheduling_service_fee') }}</span>
+              <strong>{{ formatCurrency(displayedServiceFee) }}</strong>
+            </div>
+
+            <div class="review-fee-row review-fee-row--total">
+              <span>{{ $t("inspection_scheduling_total") }}</span>
+
+              <strong :class="hasLateFee ? 'review-fee-amount--penalty' : ''">{{
+                formatCurrency(displayedTotal, feeEstimate.currency)
+              }}</strong>
+            </div>
+          </v-card>
+
+          <v-card
+            id="inspection-options"
+            border
+            class="inspection-options-card mb-5 pa-5 pa-md-6"
+            elevation="0"
+            rounded="xl"
+          >
             <h2 class="text-h6 font-weight-regular mb-4">
               {{ $t("inspection_scheduling_preference_title") }}
             </h2>
 
-            <p class="scheduling-preference-description text-body-2 mb-5">
-              {{ $t("inspection_scheduling_preference_description") }}
-            </p>
-
-            <v-menu v-model="dateMenu" :close-on-content-click="false" min-width="320">
+            <v-menu v-model="dateMenu" :close-on-content-click="false" max-width="400" min-width="0">
               <template #activator="{ props }">
                 <v-text-field
                   append-inner-icon="mdi-calendar"
@@ -431,12 +542,8 @@
               </div>
             </v-menu>
 
-            <p class="scheduling-field-hint text-caption text-medium-emphasis mt-n3 mb-7">
-              {{ $t("inspection_scheduling_dates_hint") }}
-            </p>
-
             <div
-              v-if="sameDaySelectionClosed"
+              v-if="showSameDaySelectionNotice"
               ref="sameDaySelectionNotice"
             >
               <v-alert
@@ -453,6 +560,7 @@
               class="scheduling-field"
               :items="stationOptions"
               :label="$t('inspection_scheduling_station_label')"
+              :menu-props="{ contentClass: 'scheduling-station-menu', maxHeight: 320 }"
               :no-data-text="$t('inspection_scheduling_no_stations')"
               prepend-inner-icon="mdi-map-marker"
               variant="outlined"
@@ -460,6 +568,7 @@
               <template #item="{ props, item }">
                 <v-list-item
                   v-bind="props"
+                  :class="{ 'scheduling-station-menu__no-preference': item.raw.isNoPreference }"
                   :prepend-icon="item.raw.isNoPreference ? 'mdi-map-marker-off-outline' : 'mdi-map-marker-outline'"
                   :subtitle="item.raw.subtitle"
                   :title="item.raw.title"
@@ -469,10 +578,6 @@
               </template>
             </v-select>
 
-            <p class="scheduling-field-hint text-caption text-medium-emphasis mt-n3 mb-5">
-              {{ stationPreferenceHint }}
-            </p>
-
             <v-alert
               v-if="savedPreferenceNotice"
               class="mb-4"
@@ -481,8 +586,11 @@
               variant="tonal"
             >{{ savedPreferenceNotice }}</v-alert>
 
-            <div v-if="selectedStation" class="station-summary mb-5">
-              <span class="station-summary__label">{{ $t('inspection_scheduling_selected_station_label') }}</span>
+            <div v-if="selectedStation" class="station-summary">
+              <span class="station-summary__label">
+                {{ $t('inspection_scheduling_selected_station_label') }}
+              </span>
+
               <strong>{{ stationName(selectedStation) }}</strong>
 
               <span>{{ selectedStation.province }} ·
@@ -495,63 +603,7 @@
 
           </v-card>
 
-          <v-card
-            v-if="feeEstimate && vehicle"
-            border
-            class="review-card mt-5 pa-5 pa-md-6"
-            elevation="0"
-            rounded="xl"
-          >
-            <div class="d-flex align-center ga-3 mb-4">
-              <v-avatar color="primary" size="42" variant="tonal"><v-icon icon="mdi-cash-multiple" /></v-avatar>
-
-              <div>
-                <h2 class="text-h6 font-weight-regular mb-1">
-                  {{ $t("inspection_review_estimated_fee_title") }}
-                </h2>
-
-                <p class="review-card__supporting-copy text-body-2 text-medium-emphasis mb-0">
-                  {{ $t("inspection_review_fee_copy") }}
-                </p>
-              </div>
-            </div>
-
-            <div class="review-fee-row">
-              <span>{{ $t("inspection_scheduling_inspection_fee") }}</span>
-
-              <strong>{{
-                formatCurrency(
-                  feeEstimate.inspectionFeeKhr,
-                  feeEstimate.currency,
-                )
-              }}</strong>
-            </div>
-
-            <div class="review-fee-row review-fee-row--late">
-              <span>{{ $t("inspection_scheduling_late_fee") }}</span>
-
-              <strong :class="hasLateFee ? 'text-error' : ''">{{
-                formatCurrency(feeEstimate.lateFee, feeEstimate.currency)
-              }}</strong>
-            </div>
-
-            <LatePenaltyExplanation
-              :currency="feeEstimate.currency"
-              :late-days="feeEstimate.lateDays"
-              :late-fee="feeEstimate.lateFee"
-              :vehicle-class="vehicle.vehicleClass"
-            />
-
-            <div class="review-fee-row review-fee-row--total">
-              <span>{{ $t("inspection_scheduling_estimated_total") }}</span>
-
-              <strong>{{
-                formatCurrency(feeEstimate.totalAmount, feeEstimate.currency)
-              }}</strong>
-            </div>
-          </v-card>
-
-          <div class="d-flex justify-space-between mt-6">
+          <div class="renewal-scheduling__actions d-flex justify-space-between mt-6">
             <v-btn
               :disabled="saving"
               prepend-icon="mdi-arrow-left"
@@ -569,8 +621,8 @@
           </div>
         </v-col>
 
-        <v-col cols="12" md="4">
-          <aside class="d-flex flex-column ga-5">
+        <v-col class="renewal-scheduling__progress-column" cols="12" md="4">
+          <aside class="d-flex flex-column ga-5 renewal-scheduling__sidebar">
             <v-card class="renewal-progress-card pa-5 text-white" elevation="0" rounded="xl">
               <p class="text-body-1 font-weight-medium mb-1">{{ $t('inspection_documents_application_progress') }}</p>
               <div class="text-h3 font-weight-bold">50<span class="text-h6">%</span></div>
@@ -611,10 +663,10 @@
   opacity: 1;
   padding: 4px 10px;
 }
+.renewal-scheduling__heading > p {
+  font-size: .94rem;
+}
 .renewal-stepper {
-  background: #fff;
-  border: 1px solid #e3e5eb;
-  border-radius: 14px;
   padding: 12px 28px 10px;
 }
 .renewal-stepper__steps {
@@ -645,7 +697,7 @@
   background: transparent;
   border: 0;
   cursor: pointer;
-  font: inherit;
+  font-family: inherit;
   padding: 0;
 }
 .renewal-stepper__number {
@@ -665,7 +717,7 @@
   font-weight: 700;
 }
 .renewal-stepper__step.is-active .renewal-stepper__label {
-  font-size: .86rem;
+  font-size: .94rem;
   font-weight: 800;
 }
 .renewal-stepper__step.is-active .renewal-stepper__number,
@@ -679,32 +731,42 @@
 .renewal-progress-card {
   background: #2c3678;
 }
+.renewal-scheduling__sidebar {
+  align-self: flex-start;
+  height: fit-content;
+  position: sticky;
+  top: 92px;
+}
+.renewal-scheduling__progress-column { align-self: stretch; }
 .renewal-progress-card :deep(*) {
   font-weight: 400 !important;
 }
+.renewal-progress-card :deep(.text-body-1) { font-size: .95rem !important; }
+.renewal-progress-card :deep(.text-h3) { font-size: 2.15rem !important; }
+.renewal-progress-card :deep(.text-body-2) { font-size: .85rem !important; }
+.renewal-scheduling__actions :deep(.v-btn),
+.renewal-scheduling__actions :deep(.v-btn__content) { font-size: .85rem !important; }
 .renewal-progress-card :deep(.v-progress-linear__background) {
   opacity: 0.28;
 }
 .station-summary {
-  background: #f8f9fb;
+  background: #f6f7fb;
+  border: 1px solid #e2e5ef;
   border-left: 3px solid rgb(var(--v-theme-primary));
   border-radius: 8px;
   display: flex;
   flex-direction: column;
   font-size: .94rem;
   gap: 3px;
-  padding: 11px 13px;
+  padding: 9px 12px;
 }
 .station-summary span {
   color: #626979;
 }
 .station-summary__label {
-  font-size: .9rem;
+  font-size: .85rem;
   font-weight: 700;
   text-transform: uppercase;
-}
-.review-card__supporting-copy {
-  font-size: .94rem !important;
 }
 .review-fee-row {
   align-items: center;
@@ -715,11 +777,17 @@
   padding: 12px 0;
 }
 .review-fee-row > span {
-  font-size: .94rem !important;
+  font-size: .95rem !important;
 }
-.review-fee-row--late > span,
-.review-fee-row--late > strong {
-  color: #B42318 !important;
+.review-fee-row:not(.review-fee-row--total) > strong {
+  font-size: .94rem;
+}
+.review-fee-row--category > strong {
+  max-width: 68%;
+  text-align: right;
+}
+.review-fee-amount--penalty {
+  color: rgb(var(--v-theme-error)) !important;
 }
 .review-fee-row:first-of-type {
   padding-top: 0;
@@ -730,40 +798,109 @@
   font-size: 1.05rem;
   padding-bottom: 0;
 }
+.inspection-options-card { scroll-margin-top: 92px; }
 .inspection-date-picker-panel {
+  max-width: min(376px, calc(100vw - 32px));
   position: relative;
+  width: 376px;
 }
 .inspection-date-picker {
-  width: 360px;
+  max-width: 100%;
+  width: 376px;
+}
+.inspection-date-picker :deep(.v-date-picker-header) {
+  height: 52px;
+  padding: 8px 48px 8px 18px;
+}
+.inspection-date-picker :deep(.v-date-picker-header__content) {
+  font-size: 1.35rem;
+  line-height: 36px;
+}
+.inspection-date-picker :deep(.v-date-picker-controls) {
+  height: 48px;
+  padding: 0 8px;
+}
+.inspection-date-picker :deep(.v-date-picker-month) {
+  padding: 0 8px 8px;
+}
+.inspection-date-picker :deep(.v-date-picker-month__day) {
+  height: 36px;
+  width: 36px;
 }
 .inspection-date-picker__close {
   color: #fff;
   position: absolute;
   right: 10px;
-  top: 10px;
+  top: 5px;
   z-index: 1;
+}
+:global(.scheduling-station-menu .v-list) {
+  max-height: 320px;
+  overflow-y: auto;
+  padding-block: 4px;
+}
+:global(.scheduling-station-menu .v-list-item) {
+  min-height: 58px;
+  padding-block: 4px;
+}
+:global(.scheduling-station-menu .v-list-item__content) {
+  overflow: visible;
+}
+:global(.scheduling-station-menu .v-list-item-title) {
+  font-size: .94rem;
+  line-height: 1.5;
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+}
+:global(.scheduling-station-menu .v-list-item-subtitle) {
+  font-size: .82rem;
+  line-height: 1.4;
+  overflow: visible;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+  white-space: normal;
+}
+:global(.scheduling-station-menu .scheduling-station-menu__no-preference) {
+  min-height: 80px;
+  padding-block: 6px;
+}
+:global(.scheduling-station-menu .scheduling-station-menu__no-preference .v-list-item__content) {
+  overflow: visible;
+}
+:global(.scheduling-station-menu .scheduling-station-menu__no-preference .v-list-item-subtitle) {
+  -webkit-line-clamp: 3;
+  overflow: visible;
+  text-overflow: clip;
+}
+:global(.scheduling-station-menu .v-list-item--active) {
+  background: #eef0fb;
+  color: #202746;
+}
+:global(.scheduling-station-menu .v-list-item--active > .v-list-item__overlay) {
+  opacity: 0;
 }
 .scheduling-field :deep(.v-field-label) {
   color: #323849;
-  font-size: 0.9rem !important;
+  font-size: .85rem !important;
   font-weight: 600;
   opacity: 1;
+}
+.scheduling-field :deep(.v-field__input),
+.scheduling-field :deep(.v-select__selection-text) {
+  font-size: .94rem !important;
+}
+.scheduling-field :deep(.v-field--focused .v-field__outline) {
+  color: rgb(var(--v-theme-primary));
 }
 .scheduling-date-field :deep(input) {
   font-weight: 600;
 }
-.scheduling-preference-description {
-  color: #4a5263;
-  font-size: .94rem !important;
-  font-weight: 500;
-}
-.scheduling-field-hint {
-  font-size: .94rem !important;
-}
 .scheduling-info-notice :deep(.v-alert__content) {
-  font-size: .94rem !important;
+  font-size: .88rem !important;
   line-height: 1.5;
 }
+.scheduling-date-unavailable-alert :deep(.v-alert__content) { font-size: .9rem !important; }
 .scheduling-pending-notice {
   background: #fff1cf !important;
   color: #8a4b00 !important;
@@ -771,16 +908,21 @@
 .scheduling-pending-notice :deep(.v-alert__icon) {
   color: #8a4b00 !important;
 }
+@media (max-width: 959px) {
+  .renewal-scheduling__sidebar {
+    display: none !important;
+  }
+}
 @media (max-width: 599px) {
   .renewal-stepper {
     padding: 12px 8px 10px;
   }
   .renewal-stepper__label {
-    font-size: 0.72rem;
+    font-size: .86rem;
     line-height: 1.2;
   }
   .inspection-date-picker {
-    width: min(360px, calc(100vw - 32px));
+    width: 100%;
   }
 }
 </style>

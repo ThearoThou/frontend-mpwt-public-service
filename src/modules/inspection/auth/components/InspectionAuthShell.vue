@@ -24,8 +24,8 @@
   .auth-shell { min-height: 100vh; position: relative; background: radial-gradient(circle at 50% 28%, #43569a 0%, #26346d 37%, #19245a 100%); color: #071a4f; }
   .auth-brand { color: #06184b; max-width: 100%; }
   .auth-logo { width: 78px; height: 78px; }
-  .auth-ministry-title { font-family: 'Moul', 'Siemreap', sans-serif !important; font-size: clamp(22px, 3vw, 30px); font-weight: 400 !important; font-synthesis: none; letter-spacing: normal; line-height: 1.8; }
-  .auth-ministry-subtitle { font-family: 'Siemreap', sans-serif !important; font-size: .95rem; font-weight: 400; letter-spacing: .025em; line-height: 1.6; color: inherit; }
+  .auth-ministry-title { font-family: 'Moul', Calibri, 'Siemreap', sans-serif !important; font-size: clamp(22px, 3vw, 30px); font-weight: 400 !important; font-synthesis: none; letter-spacing: normal; line-height: 1.8; }
+  .auth-ministry-subtitle { font-family: Calibri, 'Siemreap', sans-serif !important; font-size: .95rem; font-weight: 400; letter-spacing: .025em; line-height: 1.6; color: inherit; }
   .auth-card { max-width: 640px; background: #fbf9fd; }
   .auth-card--compact { max-width: 560px; }
   .auth-shell--dense { padding-top: 2rem !important; padding-bottom: 1.5rem !important; }
@@ -34,8 +34,8 @@
   .auth-card-title { font-size: 1.35rem; line-height: 1.35; }
   .auth-card-description { font-size: .95rem; white-space: normal; overflow-wrap: anywhere; }
   .auth-card :deep(.v-field__input) { font-size: .95rem; }
-  .auth-card :deep(.v-label) { font-size: .9rem; }
-  .auth-card :deep(.v-label.v-field-label--floating) { font-size: .75rem; }
+  .auth-card :deep(.v-label) { contain: none; font-size: .9rem; line-height: 1.65; overflow: visible; }
+  .auth-card :deep(.v-label.v-field-label--floating) { font-size: .75rem; line-height: 1.65; }
   .auth-card :deep(.v-btn--size-large) { font-size: .85rem; }
   .auth-card :deep(.auth-account-prompt) { font-size: .9rem; }
   .auth-card :deep(.v-alert) { font-size: .9rem; }

@@ -1,4 +1,4 @@
-import type { ApiDataResponse, ApiPaginatedResponse, ApplicationDocument, ApplicationDocumentType, CitizenFeeEstimate, CitizenInspectionStatus, CitizenPaymentInvoice, CitizenPaymentRecord, CitizenStickerStatus, ListCitizenApplicationsQuery, PaginatedResponse, PaginationQuery, RenewalApplication, RenewalApplicationDetail, RenewalApplicationListItem, RenewalApplicationStatusHistory, TechnicalInspectionCertificateDownload, TechnicalInspectionCertificateStatus } from '../types/application.types'
+import type { ApiDataResponse, ApiPaginatedResponse, ApplicationDocument, ApplicationDocumentType, CitizenApplicationTimelineEvent, CitizenFeeEstimate, CitizenInspectionStatus, CitizenPaymentInvoice, CitizenPaymentRecord, CitizenStickerStatus, ListCitizenApplicationsQuery, PaginatedResponse, PaginationQuery, RenewalApplication, RenewalApplicationDetail, RenewalApplicationListItem, RenewalApplicationStatusHistory, TechnicalInspectionCertificateDownload, TechnicalInspectionCertificateStatus } from '../types/application.types'
 import { http } from '@/services/http'
 
 export const inspectionApplicationService = {
@@ -40,6 +40,9 @@ export const inspectionApplicationService = {
   },
   async listStatusHistory (applicationId: string, query: PaginationQuery = {}): Promise<PaginatedResponse<RenewalApplicationStatusHistory>> {
     return (await http.get<ApiPaginatedResponse<RenewalApplicationStatusHistory>>(`/applications/${applicationId}/status-history`, { params: query })).data
+  },
+  async listTimelineEvents (applicationId: string): Promise<CitizenApplicationTimelineEvent[]> {
+    return (await http.get<ApiDataResponse<CitizenApplicationTimelineEvent[]>>(`/applications/${applicationId}/timeline-events`)).data.data
   },
   async getInspectionStatus (applicationId: string): Promise<CitizenInspectionStatus> {
     return (await http.get<ApiDataResponse<CitizenInspectionStatus>>(`/applications/${applicationId}/inspection-status`)).data.data

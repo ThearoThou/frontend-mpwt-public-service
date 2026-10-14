@@ -16,6 +16,19 @@ export type LatePenaltyDisplay = {
   isChargeableDaysCapped: boolean
 }
 
+export type OverdueDayBreakdown = {
+  actualOverdueDays: number
+  penaltyDays: number
+}
+
+export function overdueDayBreakdown (lateDays: number): OverdueDayBreakdown {
+  const actualOverdueDays = Math.max(Math.trunc(lateDays), 0)
+  return {
+    actualOverdueDays,
+    penaltyDays: Math.max(actualOverdueDays - LATE_PENALTY_GRACE_DAYS, 0),
+  }
+}
+
 export function latePenaltyDisplay (
   lateDays: number,
   lateFee: string,
@@ -25,7 +38,7 @@ export function latePenaltyDisplay (
     return null
   }
 
-  const normalizedLateDays = Math.max(Math.trunc(lateDays), 0)
+  const normalizedLateDays = overdueDayBreakdown(lateDays).actualOverdueDays
   const dailyRateKhr = LATE_PENALTY_DAILY_RATE_KHR[vehicleClass]
   const uncappedChargeableLateDays = Math.max(
     normalizedLateDays - LATE_PENALTY_GRACE_DAYS,

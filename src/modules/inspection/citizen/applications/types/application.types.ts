@@ -3,16 +3,14 @@ export type ApplicationStatus
     | 'SUBMITTED'
     | 'UNDER_REVIEW'
     | 'CORRECTION_REQUIRED'
-    | 'APPOINTMENT_SELECTION_REQUIRED'
     | 'APPROVED'
-    | 'REINSPECTION_REQUIRED'
     | 'INSPECTION_FAILED'
     | 'EXPIRED'
     | 'REJECTED'
     | 'CANCELLED'
     | 'COMPLETED'
 
-export type PaymentStatus = 'PENDING' | 'CONFIRMED' | 'FAILED' | 'REJECTED'
+export type PaymentStatus = 'PENDING' | 'CONFIRMED' | 'REJECTED'
 
 export type InspectionResult = 'PASS' | 'FAIL'
 
@@ -28,7 +26,9 @@ export interface RenewalApplication {
   currentRejectionReason: string | null
   preferredInspectionStationId: string | null
   preferredInspectionDate: string | null
+  optionalOversizeServiceSelected: boolean
   submittedAt: string | null
+  applicationExpiryDate: string | null
   reviewStartedAt: string | null
   readyForInspectionAt: string | null
   completedAt: string | null
@@ -68,8 +68,13 @@ export interface RenewalApplicationVehicleSummary {
 
 export interface RenewalApplicationPaymentSummary {
   status: PaymentStatus
+  transactionNumber: string | null
   totalAmount: string
   currency: string
+}
+
+export interface RenewalApplicationCertificateSummary {
+  certificateNumber: string
 }
 
 export interface RenewalApplicationInspectionSummary {
@@ -86,6 +91,12 @@ export interface RenewalApplicationVehicleSnapshot {
   vehicleType: string | null
   vehicleClass: string | null
   inspectionCategoryId: string | null
+  inspectionCategory: {
+    id: string
+    code: string
+    nameKh: string
+    nameEn: string | null
+  } | null
   make: string | null
   model: string | null
   manufactureYear: number | null
@@ -117,10 +128,12 @@ export interface RenewalApplicationVehicleSnapshot {
 export interface RenewalApplicationListItem extends RenewalApplication {
   vehicle: RenewalApplicationVehicleSummary | null
   payment: RenewalApplicationPaymentSummary | null
+  certificate: RenewalApplicationCertificateSummary | null
   inspection: RenewalApplicationInspectionSummary | null
 }
 
 export interface RenewalApplicationDetail extends RenewalApplication {
+  transactionNumber: string | null
   vehicleSnapshot: RenewalApplicationVehicleSnapshot | null
 }
 
@@ -148,6 +161,11 @@ export interface RenewalApplicationStatusHistory {
   createdAt: string
 }
 
+export interface CitizenApplicationTimelineEvent {
+  eventType: string
+  occurredAt: string
+}
+
 export interface CitizenFeeEstimate {
   inspectionFeeKhr: string
   serviceFeeKhr: string
@@ -156,6 +174,9 @@ export interface CitizenFeeEstimate {
   lateFee: string
   totalAmount: string
   currency: string
+  optionalServiceEligible: boolean
+  optionalServiceSelected: boolean
+  optionalServiceFeeKhr: string
 }
 
 export interface CitizenPaymentRecord {
@@ -199,6 +220,7 @@ export interface CitizenPaymentInvoice extends CitizenPaymentRecord {
     model: string
     manufactureYear: number | null
     chassisNumber: string
+    engineNumber: string | null
   }
   applicant: {
     nameKh: string | null

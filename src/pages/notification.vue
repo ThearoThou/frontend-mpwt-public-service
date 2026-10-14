@@ -97,10 +97,12 @@
       <div class="d-flex align-center justify-space-between mb-6">
         <div>
           <h1 class="text-h4 font-weight-bold mb-2">Notifications</h1>
+
           <p class="text-body-1 text-grey-darken-1">
             Manage and view all your notifications in one place
           </p>
         </div>
+
         <v-btn icon @click="router.back()">
           <v-icon>mdi-close</v-icon>
         </v-btn>
@@ -112,10 +114,12 @@
           All
           <v-badge class="ml-2" :content="totalCount" inline />
         </v-tab>
+
         <v-tab value="unread">
           Unread
           <v-badge class="ml-2" :content="unreadCount" inline />
         </v-tab>
+
         <v-tab value="archived">Archived</v-tab>
       </v-tabs>
 
@@ -126,6 +130,7 @@
         <p class="text-body-2 text-grey-darken-1">
           {{ notifications.length }} notification{{ notifications.length !== 1 ? 's' : '' }}
         </p>
+
         <div class="d-flex gap-2">
           <v-tooltip text="Mark all as read">
             <template #activator="{ props }">
@@ -169,6 +174,7 @@
       <div v-if="notifications.length === 0 && !loading" class="py-12 text-center">
         <v-icon class="mb-4" color="grey-lighten-1" size="80">mdi-bell-off</v-icon>
         <h3 class="text-h6 text-grey-darken-1 mb-2">No notifications</h3>
+
         <p class="text-body-2 text-grey">
           You're all caught up! Check back later for new updates.
         </p>
@@ -207,10 +213,12 @@
                   <h4 class="text-h6 font-weight-bold">
                     {{ notification.title }}
                   </h4>
+
                   <span class="text-caption text-grey-darken-1 flex-shrink-0">
                     {{ formatTime(notification.timestamp) }}
                   </span>
                 </div>
+
                 <p class="text-body-2 text-grey-darken-1 mb-3 line-clamp-3">
                   {{ notification.message }}
                 </p>

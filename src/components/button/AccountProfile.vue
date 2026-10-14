@@ -89,9 +89,11 @@
           :image="user?.avatar"
           size="48"
         />
+
         <div class="flex-grow-1 ml-2">
           <div class="text-body2 font-weight-600">{{ user?.name }}</div>
           <div class="text-caption text-medium-emphasis">{{ user?.email }}</div>
+
           <v-chip class="mt-1" size="x-small" variant="outlined">
             {{ user?.phone }}
           </v-chip>

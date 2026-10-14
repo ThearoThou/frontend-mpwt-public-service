@@ -1,8 +1,8 @@
 import type { RenewalApplication } from '../../applications/types/application.types'
-import { inspectionExpiryState } from '../../vehicles/utils/inspection-expiry-status'
+import { inspectionExpiryState, renewalRequiresConfirmation } from '../../vehicles/utils/inspection-expiry-status'
 
 export type RenewalEntryAction = {
-  kind: 'start' | 'renew' | 'apply-again' | 'resume' | 'view'
+  kind: 'correct' | 'start' | 'renew' | 'apply-again' | 'resume' | 'track'
   icon: string
   labelKey: string
 }
@@ -19,14 +19,17 @@ export type RenewalReminderBadge = {
   labelKey: 'inspection_renewal_available' | 'inspection_renewal_required'
 }
 
+export type RenewalEntryDecision
+  = | { kind: 'continue', application: RenewalApplication }
+    | { kind: 'confirm' }
+    | { kind: 'create' }
+
 const UNFINISHED_APPLICATION_STATUSES = new Set<RenewalApplication['status']>([
   'DRAFT',
   'SUBMITTED',
   'UNDER_REVIEW',
   'CORRECTION_REQUIRED',
-  'APPOINTMENT_SELECTION_REQUIRED',
   'APPROVED',
-  'REINSPECTION_REQUIRED',
 ])
 
 export function findUnfinishedApplication (
@@ -38,6 +41,22 @@ export function findUnfinishedApplication (
       application.vehicleId === vehicleId
       && UNFINISHED_APPLICATION_STATUSES.has(application.status),
   )
+}
+
+/** Active renewal state is authoritative; vehicle validity is considered only when none exists. */
+export function resolveRenewalEntryDecision (
+  applications: RenewalApplication[],
+  vehicleId: string,
+  inspectionExpiryDate: string,
+): RenewalEntryDecision {
+  const application = findUnfinishedApplication(applications, vehicleId)
+  if (application !== undefined) {
+    return { kind: 'continue', application }
+  }
+
+  return renewalRequiresConfirmation(inspectionExpiryDate)
+    ? { kind: 'confirm' }
+    : { kind: 'create' }
 }
 
 export function findRenewalEntryApplication (
@@ -68,6 +87,14 @@ export function renewalEntryAction (
     }
   }
 
+  if (application.status === 'CORRECTION_REQUIRED') {
+    return {
+      kind: 'correct',
+      icon: 'mdi-file-edit-outline',
+      labelKey: 'inspection_application_correct_documents',
+    }
+  }
+
   if (application.status === 'EXPIRED') {
     return {
       kind: 'renew',
@@ -85,9 +112,9 @@ export function renewalEntryAction (
   }
 
   return {
-    kind: 'view',
+    kind: 'track',
     icon: 'mdi-file-document-outline',
-    labelKey: 'inspection_confirmation_view_application',
+    labelKey: 'inspection_renewal_track_application',
   }
 }
 
@@ -121,20 +148,10 @@ export function renewalApplicationStatusBadge (
       icon: 'mdi-file-alert-outline',
       labelKey: 'inspection_renewal_status_correction_required',
     },
-    APPOINTMENT_SELECTION_REQUIRED: {
-      color: 'warning',
-      icon: 'mdi-calendar-clock-outline',
-      labelKey: 'inspection_renewal_status_appointment_selection_required',
-    },
     APPROVED: {
       color: 'success',
       icon: 'mdi-file-check-outline',
       labelKey: 'inspection_renewal_status_approved',
-    },
-    REINSPECTION_REQUIRED: {
-      color: 'warning',
-      icon: 'mdi-file-alert-outline',
-      labelKey: 'inspection_renewal_action_required',
     },
     INSPECTION_FAILED: {
       color: 'warning',

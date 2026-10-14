@@ -8,6 +8,7 @@ export interface VehicleLookupQuery {
   sortBy?: VehicleSortField
   sortOrder?: 'asc' | 'desc'
   search?: string
+  inspectionStatus?: 'valid' | 'expiring' | 'expired'
   registrationNumber?: string
   chassisNumber?: string
   plateNumber?: string

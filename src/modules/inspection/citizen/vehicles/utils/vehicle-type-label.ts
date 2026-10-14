@@ -1,8 +1,9 @@
 type Translate = (key: string) => string
 
 const vehicleTypeKeys: Record<string, string> = {
-  FAMILY_CAR: 'inspection_vehicle_type_family_car',
-  PASSENGER_CAR: 'inspection_vehicle_type_passenger_car',
+  FAMILY_PASSENGER: 'inspection_vehicle_type_family_passenger_vehicle_2a',
+  FAMILY_CAR: 'inspection_vehicle_type_family_passenger_vehicle_2a',
+  PASSENGER_CAR: 'inspection_vehicle_type_family_passenger_vehicle_2a',
   CAR: 'inspection_vehicle_type_car',
   SEDAN: 'inspection_vehicle_type_sedan',
   SUV: 'inspection_vehicle_type_suv',

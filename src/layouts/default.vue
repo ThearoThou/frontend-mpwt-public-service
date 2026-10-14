@@ -1,11 +1,12 @@
 <template>
   <home-nav />
+
   <v-container max-width="1200">
     <v-main>
       <router-view />
     </v-main>
 
-<!--    <AppFooter />-->
+    <!--    <AppFooter />-->
   </v-container>
 </template>
 

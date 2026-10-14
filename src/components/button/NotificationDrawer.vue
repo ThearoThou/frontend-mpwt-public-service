@@ -189,20 +189,24 @@
         <v-toolbar color="primary">
           <v-toolbar-title class="text-white">Notifications</v-toolbar-title>
           <v-spacer />
+
           <v-btn icon size="small" @click="drawer = false">
             <v-icon class="text-white">mdi-close</v-icon>
           </v-btn>
         </v-toolbar>
       </template>
+
       <v-tabs v-model="currentTab" class="mt-0" grow>
         <v-tab value="all">
           All
           <v-badge class="ml-1" :content="totalCount" inline />
         </v-tab>
+
         <v-tab value="unread">
           Unread
           <v-badge class="ml-1" :content="unreadCount" inline />
         </v-tab>
+
         <v-tab value="archived">Archived</v-tab>
       </v-tabs>
 
@@ -210,6 +214,7 @@
 
       <v-toolbar class="px-2 py-1" dense flat>
         <v-spacer />
+
         <v-tooltip text="Mark all as read">
           <template #activator="{ props }">
             <v-btn
@@ -276,10 +281,12 @@
                     <h4 class="text-subtitle-2 font-weight-bold truncate">
                       {{ notification.title }}
                     </h4>
+
                     <span class="text-caption text-grey-darken-1 flex-shrink-0">
                       {{ formatTime(notification.timestamp) }}
                     </span>
                   </div>
+
                   <p class="text-body-2 text-grey-darken-1 mb-2 line-clamp-2">
                     {{ notification.message }}
                   </p>

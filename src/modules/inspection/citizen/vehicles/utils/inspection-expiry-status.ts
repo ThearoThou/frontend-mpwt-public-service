@@ -19,6 +19,10 @@ export function inspectionExpiryState (inspectionExpiryDate: string, now = new D
   return 'valid'
 }
 
+export function renewalRequiresConfirmation (inspectionExpiryDate: string, now = new Date()): boolean {
+  return inspectionExpiryState(inspectionExpiryDate, now) === 'valid'
+}
+
 export function cambodiaToday (now: Date = new Date()): string {
   const parts = new Intl.DateTimeFormat('en-US', {
     timeZone: CAMBODIA_TIME_ZONE,

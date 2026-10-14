@@ -89,6 +89,7 @@
                 :image="userData?.avatar"
                 size="120"
               />
+
               <div
                 v-if="isEditing"
                 class="avatar-overlay"
@@ -96,6 +97,7 @@
               >
                 <v-icon color="white" icon="mdi-camera" size="28" />
               </div>
+
               <input
                 ref="fileInputRef"
                 accept="image/*"
@@ -104,13 +106,16 @@
                 @change="handleFileChange"
               >
             </div>
+
             <h2 class="text-h6 font-weight-600">
               {{ userData?.family_name }} {{ userData?.given_name }}
             </h2>
+
             <p class="text-body2 text-medium-emphasis">
               {{ userData?.email }}
             </p>
           </div>
+
           <div class="d-flex flex-column align-center">
             <v-btn
               v-if="!isEditing"
@@ -120,6 +125,7 @@
             >
               កែសម្រួលប្រវត្តិរូប
             </v-btn>
+
             <div v-else class="d-flex ga-2">
               <v-btn
                 variant="tonal"
@@ -127,6 +133,7 @@
               >
                 រក្សាទុក
               </v-btn>
+
               <v-btn
                 variant="outlined"
                 @click="toggleEdit"
@@ -141,21 +148,26 @@
           <v-card-title class="text-h6 font-weight-600 rounded-b">
             ព័ត៌មានលម្អិត
           </v-card-title>
+
           <v-card-text>
             <v-list class="rounded">
               <v-list-item>
                 <v-list-item-title class="text-medium-emphasis">
                   នាមខ្លួន
                 </v-list-item-title>
+
                 <v-list-item-subtitle class="text-body-1 mt-2 font-weight-600">
                   {{ userData?.given_name }}
                 </v-list-item-subtitle>
               </v-list-item>
+
               <v-divider inset />
+
               <v-list-item>
                 <v-list-item-title class="text-medium-emphasis">
                   នាមត្រកូល
                 </v-list-item-title>
+
                 <v-list-item-subtitle class="text-body-1 mt-2 font-weight-600">
                   {{ userData?.family_name }}
                 </v-list-item-subtitle>
@@ -168,20 +180,24 @@
           <v-card-title class="text-h6 font-weight-600 rounded-b">
             គណនីលម្អិត
           </v-card-title>
+
           <v-card-text>
             <v-list class="rounded">
               <v-list-item>
                 <v-list-item-title class="text-medium-emphasis">
                   ប្រភេទគណនី
                 </v-list-item-title>
+
                 <v-list-item-subtitle class="text-body-1 mt-2 font-weight-600">
                   {{ userData?.given_name }}
                 </v-list-item-subtitle>
               </v-list-item>
+
               <v-list-item>
                 <v-list-item-title class="text-medium-emphasis">
                   ស្ថានភាពលេខសម្គាល់
                 </v-list-item-title>
+
                 <v-list-item-subtitle class="text-body-1 mt-2 font-weight-600">
                   <v-chip color="success" size="small" variant="elevated">
                     បានផ្ទៀងផ្ទាត់ដោយអ៊ីមែល
@@ -196,20 +212,24 @@
           <v-card-title class="text-h6 font-weight-600 rounded-b">
             គណនីលម្អិត
           </v-card-title>
+
           <v-card-text>
             <v-list class="rounded">
               <v-list-item>
                 <v-list-item-title class="text-medium-emphasis">
                   ប្រភេទគណនី
                 </v-list-item-title>
+
                 <v-list-item-subtitle class="text-body-1 mt-2 font-weight-600">
                   {{ userData?.given_name }}
                 </v-list-item-subtitle>
               </v-list-item>
+
               <v-list-item>
                 <v-list-item-title class="text-medium-emphasis">
                   ស្ថានភាពលេខសម្គាល់
                 </v-list-item-title>
+
                 <v-list-item-subtitle class="text-body-1 mt-2 font-weight-600">
                   <v-chip color="success" size="small" variant="elevated">
                     បានផ្ទៀងផ្ទាត់ដោយអ៊ីមែល
@@ -219,11 +239,13 @@
             </v-list>
           </v-card-text>
         </v-card>
+
         <v-dialog v-model="cropDialog" max-width="480">
           <v-card>
             <v-card-title class="text-h6 font-weight-600">
               កែរូបភាព
             </v-card-title>
+
             <v-card-text>
               <Cropper
                 v-if="cropImage"
@@ -234,11 +256,14 @@
                 :transition-duration="250"
               />
             </v-card-text>
+
             <v-card-actions>
               <v-spacer />
+
               <v-btn variant="text" @click="closeCropDialog">
                 បោះបង់
               </v-btn>
+
               <v-btn color="primary" @click="handleCropConfirm">
                 រក្សាទុក
               </v-btn>

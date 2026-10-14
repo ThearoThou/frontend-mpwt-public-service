@@ -45,6 +45,14 @@ const i18nConfig = {
 const i18n = createI18n(i18nConfig)
 let synchronizeVuetifyLocale: VuetifyLocaleSynchronizer | undefined
 
+function synchronizeDocumentLocale (locale: SupportedLocale) {
+  if (typeof document !== 'undefined') {
+    document.documentElement.lang = locale === 'kh' ? 'km' : 'en'
+  }
+}
+
+synchronizeDocumentLocale(i18n.global.locale.value as SupportedLocale)
+
 // Vuetify uses the same Vue I18n instance, including for the date picker.
 // Adding its messages here keeps its controls in sync with the app language.
 i18n.global.mergeLocaleMessage('en', { $vuetify: vuetifyEn })
@@ -63,6 +71,7 @@ export function setAppLocale (locale: SupportedLocale) {
   }
 
   i18n.global.locale.value = locale
+  synchronizeDocumentLocale(locale)
   synchronizeVuetifyLocale?.(locale)
   if (typeof window !== 'undefined') {
     window.localStorage.setItem(LOCALE_STORAGE_KEY, locale)

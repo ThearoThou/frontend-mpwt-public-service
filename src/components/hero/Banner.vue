@@ -1,10 +1,10 @@
 <template>
   <div>
-<!--    <div class="mb-8 text-center">-->
-<!--      <img alt="mpwt-logo" class="page-logo" :src="logo">-->
-<!--      <h1 class="text-h5 font-weight-bold">{{ $t('MPWT') }}</h1>-->
-<!--      <div class="text-body-2 font-weight-light mb-n1">{{ $t('welcome') }}</div>-->
-<!--    </div>-->
+    <!--    <div class="mb-8 text-center">-->
+    <!--      <img alt="mpwt-logo" class="page-logo" :src="logo">-->
+    <!--      <h1 class="text-h5 font-weight-bold">{{ $t('MPWT') }}</h1>-->
+    <!--      <div class="text-body-2 font-weight-light mb-n1">{{ $t('welcome') }}</div>-->
+    <!--    </div>-->
 
     <v-row>
       <v-col cols="12">
@@ -36,6 +36,7 @@
                   {{ slide.subtitle }}
                 </div>
               </template>
+
               <v-card-item>
                 <v-btn
                   :append-icon="slide.buttonIcon"

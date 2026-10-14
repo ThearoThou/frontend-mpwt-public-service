@@ -8,8 +8,10 @@
 // @use 'vuetify/settings' with (
 //   $color-pack: false
 // );
-$font-family-base: 'Siemreap', sans-serif;
-$font-family-heading: 'Siemreap', sans-serif;
+// Calibri handles Latin text; the bundled Siemreap face handles Khmer.
+// Calibri has no Khmer glyphs, so Khmer characters automatically use Siemreap.
+$font-family-base: Calibri, 'Siemreap', sans-serif;
+$font-family-heading: Calibri, 'Siemreap', sans-serif;
 $body-font-size: 16px;
 $heading-font-weight: 400;
 $border-radius-base: 8px;
@@ -22,6 +24,11 @@ $badge-border-radius: $border-radius-base;
 // default font family for vuetify components
 $body-font-family: $font-family-base !default;
 $heading-font-family: $font-family-heading !default;
+
+// English is slightly enlarged so it visually balances with Siemreap Khmer.
+html[lang='en'] {
+    font-size: 16.5px;
+}
 * {
     font-weight: 400 !important;
 }
@@ -31,7 +38,7 @@ $heading-font-family: $font-family-heading !default;
 }
 
 :where([data-pdf-document], [data-pdf-document] *) {
-    font-family: 'Siemreap', 'Battambang', 'Kantumruy Pro', sans-serif !important;
+    font-family: Calibri, 'Siemreap', 'Battambang', 'Kantumruy Pro', sans-serif !important;
 }
 
 .v-application.v-theme--dark {

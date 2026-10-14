@@ -94,17 +94,21 @@
           <v-card-title class="text-h6 font-weight-600 border-b pa-4">
             ពាក្យសម្ងាត់
           </v-card-title>
+
           <v-card-text class="pa-4">
             <p class="text-body2 text-medium-emphasis mb-4">
               ផ្លាស់ប្តូរពាក្យសម្ងាត់របស់អ្នក ដើម្បីបង្កើតគណនីរបស់អ្នកឱ្យសុវត្ថិ
             </p>
+
             <div class="d-flex justify-space-between align-center">
               <div>
                 <p class="text-body2 font-weight-600 mb-1">ផ្លាស់ប្តូរលាលឿង</p>
+
                 <p class="text-caption text-medium-emphasis">
                   {{ securityData.passwordLastChanged }}
                 </p>
               </div>
+
               <v-btn
                 v-if="!showPasswordForm"
                 variant="tonal"
@@ -129,6 +133,7 @@
                       @click:append-inner="showPasswordCurrent = !showPasswordCurrent"
                     />
                   </v-col>
+
                   <v-col cols="12">
                     <v-text-field
                       v-model="passwordForm.newPassword"
@@ -140,6 +145,7 @@
                       @click:append-inner="showPasswordNew = !showPasswordNew"
                     />
                   </v-col>
+
                   <v-col cols="12">
                     <v-text-field
                       v-model="passwordForm.confirmPassword"
@@ -151,6 +157,7 @@
                       @click:append-inner="showPasswordConfirm = !showPasswordConfirm"
                     />
                   </v-col>
+
                   <v-col class="d-flex gap-2" cols="12">
                     <v-btn
                       variant="tonal"
@@ -158,6 +165,7 @@
                     >
                       រក្សាទុក
                     </v-btn>
+
                     <v-btn
                       variant="outlined"
                       @click="showPasswordForm = false"
@@ -178,21 +186,25 @@
           <v-card-title class="text-h6 font-weight-600 border-b pa-4">
             ការផ្ទៀងផ្ទាត់ពីរកត្តា
           </v-card-title>
+
           <v-card-text class="pa-4">
             <div class="d-flex justify-space-between align-center">
               <div>
                 <p class="text-body2 font-weight-600 mb-1">
                   ការផ្ទៀងផ្ទាត់ពីរកត្តា (2FA)
                 </p>
+
                 <p class="text-caption text-medium-emphasis">
                   បង្កើនសុវត្ថិភាពនៃគណនីរបស់អ្នក
                 </p>
               </div>
+
               <v-switch
                 v-model="twoFactorEnabled"
                 color="success"
               />
             </div>
+
             <v-alert
               v-if="twoFactorEnabled"
               class="mt-4"
@@ -211,6 +223,7 @@
         <v-card class="elevation-0 border">
           <v-card-title class="text-h6 font-weight-600 border-b pa-4 d-flex justify-space-between">
             <span>សម័យកាលសកម្ម</span>
+
             <v-btn
               color="error"
               size="small"
@@ -220,6 +233,7 @@
               ផ្ដាច់សម័យកាលផ្សេងទៀត
             </v-btn>
           </v-card-title>
+
           <v-list>
             <v-list-item
               v-for="(session) in deviceSessions"
@@ -275,6 +289,7 @@
           <v-card-title class="text-h6 font-weight-600 border-b pa-4">
             ប្រវត្តិការចូល
           </v-card-title>
+
           <v-table>
             <tbody>
               <tr v-for="login in loginHistory" :key="login.id">
@@ -282,8 +297,10 @@
                   <v-icon class="mr-2" :color="login.success ? 'success' : 'error'" size="small">
                     {{ login.success ? 'mdi-check-circle' : 'mdi-alert-circle' }}
                   </v-icon>
+
                   <span class="text-body2">{{ login.device }}</span>
                 </td>
+
                 <td class="pa-4 text-body2">{{ login.location }}</td>
                 <td class="pa-4 text-body2 text-medium-emphasis">{{ login.timestamp }}</td>
               </tr>

@@ -40,11 +40,16 @@ export const inspectionSchedulingService = {
     applicationId: string,
     preferredInspectionDate: string,
     preferredInspectionStationId: string | null,
+    optionalOversizeServiceSelected: boolean,
   ): Promise<RenewalApplication> {
     return (
       await http.post<ApiDataResponse<RenewalApplication>>(
         `/applications/${applicationId}/scheduling-preference`,
-        { preferredInspectionDate, preferredInspectionStationId },
+        {
+          preferredInspectionDate,
+          preferredInspectionStationId,
+          optionalOversizeServiceSelected,
+        },
       )
     ).data.data
   },

@@ -7,10 +7,11 @@
   import { inspectionAuthService } from '../../auth/services/auth.service'
   import { inspectionApplicationService } from '../applications/services/application.service'
   import { inspectionVehicleService } from '../vehicles/services/vehicle.service'
+  import { resolveInspectionCategoryLabel } from '../vehicles/utils/inspection-category-label'
   import { inspectionExpiryState } from '../vehicles/utils/inspection-expiry-status'
-  import { formatVehicleType } from '../vehicles/utils/vehicle-type-label'
   import LatePenaltyExplanation from './components/LatePenaltyExplanation.vue'
   import RenewalDocumentUploadCard from './components/RenewalDocumentUploadCard.vue'
+  import { overdueDayBreakdown } from './utils/late-penalty-display'
   import { prefetchRenewalStep } from './utils/prefetch-renewal-step'
 
   const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024
@@ -22,7 +23,7 @@
     '.png': 'image/png',
   }
 
-  const { t } = useI18n()
+  const { locale, t } = useI18n()
   const route = useRoute()
   const router = useRouter()
   const applicationId = computed(() => typeof route.query.applicationId === 'string' ? route.query.applicationId : '')
@@ -45,6 +46,9 @@
   const currentDocuments = computed(() => documents.value.filter(document => document.isCurrent))
   const canContinue = computed(() => documentDefinitions.every(item => currentDocument(item.type) !== undefined))
   const hasLateFee = computed(() => Number(feeEstimate.value?.lateFee ?? 0) > 0)
+  const overdueDays = computed(() => feeEstimate.value === null
+    ? null
+    : overdueDayBreakdown(feeEstimate.value.lateDays))
   const inspectionState = computed<'expired' | 'expiring' | 'valid'>(() => {
     const inspectionExpiryDate = vehicle.value?.inspectionExpiryDate
     if (inspectionExpiryDate === undefined) return 'valid'
@@ -55,7 +59,6 @@
     expiring: 'text-warning',
     valid: 'text-success',
   })[inspectionState.value])
-
   function currentDocument (type: ApplicationDocumentType): ApplicationDocument | undefined {
     return currentDocuments.value.find(document => document.documentType === type)
   }
@@ -284,8 +287,8 @@
 
     <template v-else-if="application && citizen && vehicle">
 
-      <v-row class="renewal-documents__layout">
-        <v-col cols="12" md="8">
+      <div class="renewal-documents__layout">
+        <div class="renewal-documents__main">
           <v-card border class="renewal-info-card mb-5 pa-5 pa-md-6" elevation="0" rounded="xl">
             <div class="d-flex align-center ga-3 mb-5">
               <v-avatar color="primary" size="42" variant="tonal">
@@ -326,8 +329,8 @@
                 <strong>{{ [vehicle.make, vehicle.model, vehicle.manufactureYear].filter(Boolean).join(' · ') || '—' }}</strong>
               </div>
               <div class="renewal-info-field">
-                <span>{{ $t('inspection_vehicle_type') }}</span>
-                <strong>{{ formatVehicleType(vehicle.vehicleType, t) }}</strong>
+                <span>{{ $t('inspection_payment_inspection_category') }}</span>
+                <strong>{{ resolveInspectionCategoryLabel(vehicle.inspectionCategory, locale) }}</strong>
               </div>
             </div>
           </v-card>
@@ -361,33 +364,41 @@
                   {{ $t(`inspection_dashboard_${inspectionState}`) }}
                 </strong>
               </div>
-              <div class="renewal-info-field">
+              <div v-if="inspectionState === 'expired'" class="renewal-info-field">
                 <span>{{ $t('inspection_documents_overdue_days') }}</span>
-                <strong :class="hasLateFee ? 'text-error' : ''">{{ feeEstimate?.lateDays ?? '—' }}</strong>
+                <strong :class="hasLateFee ? 'text-error' : ''">{{ overdueDays
+                  ? $t('inspection_documents_overdue_days_value', overdueDays)
+                  : '—' }}</strong>
               </div>
               <div class="renewal-info-field">
-                <span>{{ $t('inspection_documents_late_fee') }}</span>
-                <strong :class="feeEstimate?.lateFee !== '0.00' ? 'text-error' : ''">
-                  {{ feeEstimate ? `${feeEstimate.lateFee} ${feeEstimate.currency}` : '—' }}
+                <span>
+                  {{ $t('inspection_documents_late_fee') }}
+                  <span v-if="hasLateFee" class="text-error">{{ $t('inspection_late_penalty_days', { days: overdueDays?.penaltyDays ?? 0 }) }}</span>
+                </span>
+                <strong :class="hasLateFee ? 'text-error' : ''">
+                  {{ feeEstimate ? `${Number(feeEstimate.lateFee).toLocaleString()} ៛` : '—' }}
                 </strong>
               </div>
+              <LatePenaltyExplanation
+                v-if="feeEstimate && inspectionState === 'expired'"
+                class="renewal-inspection-card__penalty-note"
+                :currency="feeEstimate.currency"
+                :late-days="feeEstimate.lateDays"
+                :late-fee="feeEstimate.lateFee"
+                :vehicle-class="vehicle.vehicleClass"
+              />
             </div>
-            <LatePenaltyExplanation
-              v-if="feeEstimate"
-              :currency="feeEstimate.currency"
-              :late-days="feeEstimate.lateDays"
-              :late-fee="feeEstimate.lateFee"
-              :vehicle-class="vehicle.vehicleClass"
-            />
           </v-card>
 
-          <v-alert class="renewal-documents__notice mb-5" density="comfortable" type="info" variant="tonal">
-            {{ $t('inspection_documents_review_information_notice') }}
-          </v-alert>
-
           <v-card border class="renewal-document-section pa-5 pa-md-6" elevation="0" rounded="xl">
-            <div class="mb-5">
-              <h2 class="text-h6 font-weight-regular mb-1">{{ $t('inspection_documents_required') }}</h2>
+            <div class="d-flex align-center ga-3 mb-5">
+              <v-avatar color="primary" size="42" variant="tonal">
+                <v-icon icon="mdi-folder-outline" />
+              </v-avatar>
+
+              <h2 class="text-h6 font-weight-regular mb-0">
+                {{ $t('inspection_documents_required') }}
+              </h2>
             </div>
 
             <div class="d-flex flex-column ga-4">
@@ -405,25 +416,25 @@
             </div>
           </v-card>
 
-          <div class="d-flex justify-space-between mt-6">
+          <div class="renewal-documents__actions d-flex justify-space-between mt-6">
             <v-btn to="/services/inspection/renewal" variant="outlined">{{ $t('inspection_documents_back') }}</v-btn>
             <v-btn append-icon="mdi-arrow-right" color="primary" :disabled="!canContinue" @click="next">
               {{ $t('inspection_documents_continue') }}
             </v-btn>
           </div>
-        </v-col>
+        </div>
 
-        <v-col cols="12" md="4">
-          <aside class="d-flex flex-column ga-5">
+        <aside class="renewal-documents__progress-column">
+          <div class="renewal-documents__progress-sticky">
             <v-card class="renewal-progress-card pa-5 text-white" elevation="0" rounded="xl">
               <p class="text-body-1 font-weight-medium mb-1">{{ $t('inspection_documents_application_progress') }}</p>
               <div class="text-h3 font-weight-bold">25<span class="text-h6">%</span></div>
               <v-progress-linear bg-color="white" class="mt-4" color="white" :model-value="25" rounded />
               <p class="text-body-2 mt-2 mb-0">{{ $t('inspection_documents_step_one_of_four') }}</p>
             </v-card>
-          </aside>
-        </v-col>
-      </v-row>
+          </div>
+        </aside>
+      </div>
     </template>
   </section>
 </template>
@@ -432,6 +443,20 @@
   .renewal-documents {
     max-width: 1120px;
     padding-bottom: 36px;
+  }
+
+  .renewal-documents__layout {
+    align-items: stretch;
+    display: grid;
+    gap: 24px;
+    grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr);
+    overflow: visible;
+  }
+
+  .renewal-documents__main,
+  .renewal-documents__progress-column {
+    min-width: 0;
+    overflow: visible;
   }
 
   .renewal-documents__heading {
@@ -460,9 +485,6 @@
   }
 
   .renewal-stepper {
-    background: #fff;
-    border: 1px solid #e3e5eb;
-    border-radius: 14px;
     padding: 12px 28px 10px;
     position: relative;
   }
@@ -530,7 +552,7 @@
   }
 
   .renewal-stepper__step.is-active .renewal-stepper__label {
-    font-size: .86rem;
+    font-size: .94rem;
     font-weight: 450;
     line-height: 1.2;
   }
@@ -552,9 +574,9 @@
   }
 
   .renewal-info-field {
-    background: #f8f9fb;
-    border: 1px solid #e3e5eb;
-    border-radius: 10px;
+    background: transparent;
+    border: 0;
+    border-radius: 0;
     display: flex;
     flex-direction: column;
     gap: 5px;
@@ -564,14 +586,17 @@
 
   .renewal-info-field span {
     color: #7c8190;
-    font-size: .9rem;
+    font-size: .85rem;
   }
 
   .renewal-info-field strong {
     color: #303746;
     font-size: .94rem;
+    font-weight: 550;
     overflow-wrap: anywhere;
   }
+
+  .renewal-inspection-card__penalty-note { background: #f7f8fb; border-color: #e4e7ef; grid-column: 1 / -1; margin: 4px 14px 0; max-width: none; padding: 10px; width: auto; }
 
   .renewal-info-field strong small {
     font-size: 0.78rem;
@@ -589,18 +614,30 @@
     background: #2c3678;
   }
 
-  .renewal-documents__notice {
-    background: #e9ebf8 !important;
-    color: #2a3472 !important;
+  .renewal-documents__progress-column {
+    align-self: stretch;
   }
 
-  .renewal-documents__notice :deep(.v-icon) {
-    color: #2a3472 !important;
+  .renewal-documents__progress-sticky {
+    align-self: flex-start;
+    height: fit-content;
+    position: sticky;
+    top: 92px;
+  }
+
+  .renewal-progress-card {
+    position: static;
   }
 
   .renewal-progress-card :deep(*) {
     font-weight: 400 !important;
   }
+
+  .renewal-progress-card :deep(.text-body-1) { font-size: .95rem !important; }
+  .renewal-progress-card :deep(.text-h3) { font-size: 2.15rem !important; }
+  .renewal-progress-card :deep(.text-body-2) { font-size: .85rem !important; }
+  .renewal-documents__actions :deep(.v-btn),
+  .renewal-documents__actions :deep(.v-btn__content) { font-size: .85rem !important; }
 
   .renewal-inspection-card {
     border-top: 4px solid #ef3838 !important;
@@ -619,6 +656,20 @@
   }
 
   @media (max-width: 959px) {
+    .renewal-documents__layout {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .renewal-documents__progress-sticky {
+      position: static;
+      top: auto;
+    }
+
+    .renewal-documents__progress-column {
+      display: none;
+    }
+
+
     .renewal-documents {
       max-width: 760px;
     }
@@ -643,12 +694,12 @@
     }
 
     .renewal-stepper__label {
-      font-size: .72rem;
+      font-size: .86rem;
       line-height: 1.2;
     }
 
     .renewal-stepper__step.is-active .renewal-stepper__label {
-      font-size: .72rem;
+      font-size: .94rem;
     }
 
     .renewal-info-card__grid {

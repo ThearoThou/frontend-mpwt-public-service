@@ -92,4 +92,9 @@ export interface PasswordResetVerifyResponse {
 export interface CitizenProfileUpdateInput {
   nameKh?: string
   nameEn?: string | null
+  phone?: string
+  email?: string | null
+  address?: string | null
 }
+
+export interface ChangePasswordInput { currentPassword: string, newPassword: string }

@@ -2,18 +2,24 @@
   import type { ApplicationStatus, RenewalApplicationListItem } from './types/application.types'
   import { useI18n } from 'vue-i18n'
   import { useRouter } from 'vue-router'
+  import { formatDisplayDate } from '@/modules/inspection/shared/utils/display-date'
+  import { findUnfinishedApplication } from '../renewal/utils/renewal-entry-action'
+  import { formatProvince, normalizeProvinceSearch } from '../vehicles/utils/province-label'
   import { inspectionApplicationService } from './services/application.service'
+  import { resolveCitizenApplicationSummaryStatus } from './utils/citizen-application-status'
+  import { correctionApplicationRoute } from './utils/correction-navigation'
 
   type StatusPresentation = { color: string, icon: string, labelKey: string }
 
   const pageSize = 20
+  const applicationSearchDebounceMs = 350
   const { locale, t } = useI18n()
   const router = useRouter()
   const applications = ref<RenewalApplicationListItem[]>([])
   const meta = ref<{ totalPages: number } | null>(null)
   const page = ref(1)
   const search = ref('')
-  type ApplicationFilterGroup = 'all' | 'draft' | 'inProgress' | 'actionRequired' | 'completed' | 'unsuccessful' | 'cancelled'
+  type ApplicationFilterGroup = 'all' | 'draft' | 'inProgress' | 'actionRequired' | 'completed' | 'unsuccessful' | 'expired' | 'cancelled'
   const filterGroup = ref<ApplicationFilterGroup>('all')
   const initialLoading = ref(true)
   const refreshing = ref(false)
@@ -31,6 +37,7 @@
     { title: t('inspection_applications_filter_action_required'), value: 'actionRequired' },
     { title: t('inspection_application_status_completed'), value: 'completed' },
     { title: t('inspection_applications_filter_unsuccessful'), value: 'unsuccessful' },
+    { title: t('inspection_application_status_expired'), value: 'expired' },
     { title: t('inspection_application_status_cancelled'), value: 'cancelled' },
   ])
 
@@ -38,9 +45,10 @@
     all: [],
     draft: ['DRAFT'],
     inProgress: ['SUBMITTED', 'UNDER_REVIEW', 'APPROVED'],
-    actionRequired: ['CORRECTION_REQUIRED', 'APPOINTMENT_SELECTION_REQUIRED', 'REINSPECTION_REQUIRED'],
+    actionRequired: ['CORRECTION_REQUIRED'],
     completed: ['COMPLETED'],
-    unsuccessful: ['REJECTED', 'INSPECTION_FAILED', 'EXPIRED'],
+    unsuccessful: ['REJECTED', 'INSPECTION_FAILED'],
+    expired: ['EXPIRED'],
     cancelled: ['CANCELLED'],
   }
 
@@ -56,8 +64,26 @@
     searchTimeout = setTimeout(() => {
       searchTimeout = null
       void loadApplications()
-    }, 300)
-  })
+    }, applicationSearchDebounceMs)
+  }, { flush: 'sync' })
+
+  function submitSearch () {
+    clearSearchDebounce()
+    page.value = 1
+    void loadApplications()
+  }
+
+  function clearSearch () {
+    search.value = ''
+    submitSearch()
+  }
+
+  function clearSearchDebounce () {
+    if (searchTimeout !== null) {
+      clearTimeout(searchTimeout)
+      searchTimeout = null
+    }
+  }
 
   async function loadApplications () {
     const request = ++requestSequence
@@ -70,7 +96,7 @@
         page: page.value,
         limit: pageSize,
         sortOrder: 'desc',
-        search: search.value,
+        search: normalizeProvinceSearch(search.value),
         statuses: filterStatuses[filterGroup.value],
       })
       if (request !== requestSequence) return
@@ -117,15 +143,20 @@
         return
       }
       if (application.status === 'INSPECTION_FAILED') {
+        const activeApplications = await inspectionApplicationService.listCitizenApplications({ limit: 100, sortOrder: 'desc' })
+        const activeApplication = findUnfinishedApplication(activeApplications.data, application.vehicleId)
+        if (activeApplication !== undefined && activeApplication.id !== application.id) {
+          await router.push(activeApplication.status === 'DRAFT'
+            ? { path: '/services/inspection/renewal/documents', query: { applicationId: activeApplication.id } }
+            : `/services/inspection/applications/${activeApplication.id}`)
+          return
+        }
         const draft = await inspectionApplicationService.applyAgain(application.id)
         await router.push({ path: '/services/inspection/renewal/documents', query: { applicationId: draft.id } })
         return
       }
       if (application.status === 'CORRECTION_REQUIRED') {
-        await router.push({
-          path: `/services/inspection/applications/${application.id}`,
-          query: { tab: 'documents' },
-        })
+        await navigateToCorrection(application)
         return
       }
       if (application.status === 'DRAFT') {
@@ -142,7 +173,23 @@
     }
   }
 
+  async function navigateToCorrection (application: RenewalApplicationListItem) {
+    await router.push(correctionApplicationRoute(application.id))
+  }
+
+  function correctionStatusAriaLabel (application: RenewalApplicationListItem): string {
+    return t('inspection_application_correction_open_accessible', {
+      status: t(statusPresentation(application).labelKey),
+    })
+  }
+
   function actionLabelKey (application: RenewalApplicationListItem): string {
+    const activeApplication = findUnfinishedApplication(applications.value, application.vehicleId)
+    if (application.status === 'INSPECTION_FAILED'
+      && activeApplication !== undefined
+      && activeApplication.id !== application.id) {
+      return 'inspection_renewal_continue'
+    }
     if (application.status === 'EXPIRED') return 'inspection_renewal_renew_again'
     if (application.status === 'INSPECTION_FAILED') return 'inspection_renewal_apply_again'
     if (application.status === 'CORRECTION_REQUIRED') return 'inspection_application_correct_documents'
@@ -150,18 +197,19 @@
     return 'inspection_applications_view_details'
   }
 
+  function isViewDetailsAction (application: RenewalApplicationListItem): boolean {
+    return actionLabelKey(application) === 'inspection_applications_view_details'
+  }
+
   function formatDate (value: string | null): string {
-    if (value === null) return '—'
-    const date = new Date(value)
-    if (Number.isNaN(date.getTime())) return '—'
-    return new Intl.DateTimeFormat(locale.value === 'kh' ? 'km-KH' : 'en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).format(date)
+    return formatDisplayDate(value)
   }
 
   function vehiclePlateLabel (application: RenewalApplicationListItem): string {
     const vehicle = application.vehicle
     if (vehicle === null) return '—'
     if (vehicle.plateCategory === 'PERSONALIZED_CAMBODIA') return [t('inspection_plate_cambodia'), vehicle.plateNumber].filter(Boolean).join(' ') || '—'
-    const province = vehicle.plateProvince === 'ភ្នំពេញ' || vehicle.plateProvince?.toLowerCase() === 'phnom penh' ? t('inspection_plate_phnom_penh') : vehicle.plateProvince
+    const province = formatProvince(vehicle.plateProvince, locale.value)
     return [province, vehicle.plateNumber].filter(Boolean).join(' ') || '—'
   }
 
@@ -174,31 +222,11 @@
     if (application.payment === null) return '—'
     const amount = Number(application.payment.totalAmount)
     const formattedAmount = Number.isFinite(amount) ? new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 }).format(amount) : application.payment.totalAmount
-    return `${formattedAmount} ${application.payment.currency}`
+    return `${formattedAmount} ៛`
   }
 
   function statusPresentation (application: RenewalApplicationListItem): StatusPresentation {
-    const standardStatuses: Partial<Record<ApplicationStatus, StatusPresentation>> = {
-      DRAFT: { color: 'secondary', icon: 'mdi-file-document-edit-outline', labelKey: 'inspection_application_status_draft' },
-      SUBMITTED: { color: 'info', icon: 'mdi-clock-outline', labelKey: 'inspection_application_status_under_review' },
-      UNDER_REVIEW: { color: 'info', icon: 'mdi-clock-outline', labelKey: 'inspection_application_status_under_review' },
-      CORRECTION_REQUIRED: { color: 'warning', icon: 'mdi-pencil-alert-outline', labelKey: 'inspection_application_status_correction_required' },
-      APPOINTMENT_SELECTION_REQUIRED: { color: 'warning', icon: 'mdi-calendar-clock-outline', labelKey: 'inspection_application_status_appointment_selection_required' },
-      REJECTED: { color: 'error', icon: 'mdi-close-circle-outline', labelKey: 'inspection_application_status_rejected' },
-      REINSPECTION_REQUIRED: { color: 'warning', icon: 'mdi-car-wrench', labelKey: 'inspection_application_status_reinspection_required' },
-      INSPECTION_FAILED: { color: 'error', icon: 'mdi-alert-circle-outline', labelKey: 'inspection_application_status_inspection_failed' },
-      EXPIRED: { color: 'error', icon: 'mdi-calendar-remove-outline', labelKey: 'inspection_application_status_expired' },
-      CANCELLED: { color: 'secondary', icon: 'mdi-cancel', labelKey: 'inspection_application_status_cancelled' },
-      COMPLETED: { color: 'success', icon: 'mdi-check-circle-outline', labelKey: 'inspection_application_status_completed' },
-    }
-    if (application.status !== 'APPROVED') return standardStatuses[application.status]!
-    if (application.payment?.status === 'REJECTED') return { color: 'error', icon: 'mdi-close-circle-outline', labelKey: 'inspection_application_status_payment_rejected' }
-    if (application.payment?.status === 'FAILED') return { color: 'error', icon: 'mdi-alert-circle-outline', labelKey: 'inspection_application_status_payment_failed' }
-    if (application.payment?.status === 'PENDING') return { color: 'warning', icon: 'mdi-clock-outline', labelKey: 'inspection_application_status_waiting_payment_confirmation' }
-    if (application.inspection?.result === 'FAIL') return { color: 'error', icon: 'mdi-alert-circle-outline', labelKey: 'inspection_application_status_inspection_failed' }
-    if (application.inspection?.result === 'PASS') return { color: 'success', icon: 'mdi-check-circle-outline', labelKey: 'inspection_application_status_inspection_passed' }
-    if (application.payment?.status === 'CONFIRMED' && application.inspection === null) return { color: 'info', icon: 'mdi-calendar-clock-outline', labelKey: 'inspection_application_status_ready_for_inspection' }
-    return { color: 'primary', icon: 'mdi-check-circle-outline', labelKey: 'inspection_application_status_approved' }
+    return resolveCitizenApplicationSummaryStatus(application)
   }
 </script>
 
@@ -229,10 +257,12 @@
         clearable
         density="comfortable"
         hide-details
-        :label="$t('inspection_applications_search_label')"
         :placeholder="$t('inspection_applications_search_placeholder')"
         prepend-inner-icon="mdi-magnify"
         variant="outlined"
+        @click:clear="clearSearch"
+        @click:prepend-inner="submitSearch"
+        @keydown.enter.prevent="submitSearch"
       />
     </div>
 
@@ -252,25 +282,104 @@
       <v-card v-if="applications.length > 0" class="applications-list" elevation="0">
         <v-table class="applications-table"><colgroup><col class="applications-table__reference"><col class="applications-table__vehicle"><col class="applications-table__date"><col class="applications-table__status"><col class="applications-table__amount"><col class="applications-table__action"></colgroup><thead><tr><th>{{ $t('inspection_applications_reference') }}</th><th>{{ $t('inspection_applications_vehicle') }}</th><th>{{ $t('inspection_applications_submitted_date') }}</th><th>{{ $t('inspection_applications_status') }}</th><th>{{ $t('inspection_applications_amount') }}</th><th class="text-right">{{ $t('inspection_applications_action') }}</th></tr></thead>
 
-          <tbody><tr v-for="application in applications" :key="application.id"><td class="application-reference">{{ application.referenceNumber ?? '—' }}</td><td><strong>{{ vehiclePlateLabel(application) }}</strong><span class="application-secondary">{{ vehicleSummary(application) }}</span></td><td class="application-submitted-date">{{ formatDate(application.submittedAt) }}</td><td><v-chip :color="statusPresentation(application).color" :prepend-icon="statusPresentation(application).icon" size="small" variant="tonal">{{ $t(statusPresentation(application).labelKey) }}</v-chip></td><td class="application-amount">{{ formatAmount(application) }}</td>
+          <tbody><tr v-for="application in applications" :key="application.id"><td class="application-reference">{{ application.referenceNumber ?? '—' }}</td><td><strong>{{ vehiclePlateLabel(application) }}</strong><span class="application-secondary">{{ vehicleSummary(application) }}</span></td><td class="application-submitted-date">{{ formatDate(application.submittedAt) }}</td>
 
-            <td class="text-right"><v-btn
-              color="primary"
+            <td><v-btn
+                  v-if="application.status === 'CORRECTION_REQUIRED'"
+                  :aria-label="correctionStatusAriaLabel(application)"
+                  :class="['application-status-chip', 'application-status-action', `application-status-chip--${statusPresentation(application).color}`]"
+                  :color="statusPresentation(application).color"
+                  :prepend-icon="statusPresentation(application).icon"
+                  rounded="pill"
+                  size="small"
+                  variant="tonal"
+                  @click="navigateToCorrection(application)"
+                >{{ $t(statusPresentation(application).labelKey) }}</v-btn>
+
+              <v-chip
+                v-else
+                :class="['application-status-chip', `application-status-chip--${statusPresentation(application).color}`]"
+                :color="statusPresentation(application).color"
+                :prepend-icon="statusPresentation(application).icon"
+                size="small"
+                variant="tonal"
+              >{{ $t(statusPresentation(application).labelKey) }}</v-chip></td>
+
+            <td class="application-amount">{{ formatAmount(application) }}</td>
+
+            <td class="text-right">
+              <v-btn
+                v-if="isViewDetailsAction(application)"
+                :aria-label="$t('inspection_applications_view_details')"
+                icon="mdi-eye-outline"
+                :loading="navigatingApplicationId === application.id"
+                size="small"
+                :title="$t('inspection_applications_view_details')"
+                variant="text"
+                @click="openApplication(application)"
+              />
+
+              <v-btn
+                v-else
+                color="primary"
+                :loading="navigatingApplicationId === application.id"
+                size="small"
+                variant="text"
+                @click="openApplication(application)"
+              >{{ $t(actionLabelKey(application)) }}</v-btn>
+            </td></tr></tbody></v-table>
+
+        <div class="applications-cards">
+          <article v-for="application in applications" :key="application.id" class="application-card">
+            <div class="application-card__top">
+              <strong class="application-reference">{{ application.referenceNumber ?? '—' }}</strong>
+
+              <v-btn
+                v-if="application.status === 'CORRECTION_REQUIRED'"
+                :aria-label="correctionStatusAriaLabel(application)"
+                :class="['application-status-chip', 'application-status-action', `application-status-chip--${statusPresentation(application).color}`]"
+                :color="statusPresentation(application).color"
+                :prepend-icon="statusPresentation(application).icon"
+                rounded="pill"
+                size="small"
+                variant="tonal"
+                @click="navigateToCorrection(application)"
+              >{{ $t(statusPresentation(application).labelKey) }}</v-btn>
+
+              <v-chip
+                v-else
+                :class="['application-status-chip', `application-status-chip--${statusPresentation(application).color}`]"
+                :color="statusPresentation(application).color"
+                :prepend-icon="statusPresentation(application).icon"
+                size="small"
+                variant="tonal"
+              >{{ $t(statusPresentation(application).labelKey) }}</v-chip>
+            </div>
+
+            <div class="application-card__vehicle"><strong>{{ vehiclePlateLabel(application) }}</strong><span>{{ vehicleSummary(application) }}</span></div><dl class="application-card__facts"><div><dt>{{ $t('inspection_applications_submitted_date') }}</dt><dd class="application-submitted-date">{{ formatDate(application.submittedAt) }}</dd></div><div><dt>{{ $t('inspection_applications_amount') }}</dt><dd>{{ formatAmount(application) }}</dd></div></dl>
+
+            <v-btn
+              v-if="isViewDetailsAction(application)"
+              :aria-label="$t('inspection_applications_view_details')"
+              class="application-card__view-details"
+              icon="mdi-eye-outline"
               :loading="navigatingApplicationId === application.id"
               size="small"
+              :title="$t('inspection_applications_view_details')"
               variant="text"
               @click="openApplication(application)"
-            >{{ $t(actionLabelKey(application)) }}</v-btn></td></tr></tbody></v-table>
+            />
 
-        <div class="applications-cards"><article v-for="application in applications" :key="application.id" class="application-card"><div class="application-card__top"><strong class="application-reference">{{ application.referenceNumber ?? '—' }}</strong><v-chip :color="statusPresentation(application).color" :prepend-icon="statusPresentation(application).icon" size="small" variant="tonal">{{ $t(statusPresentation(application).labelKey) }}</v-chip></div><div class="application-card__vehicle"><strong>{{ vehiclePlateLabel(application) }}</strong><span>{{ vehicleSummary(application) }}</span></div><dl class="application-card__facts"><div><dt>{{ $t('inspection_applications_submitted_date') }}</dt><dd class="application-submitted-date">{{ formatDate(application.submittedAt) }}</dd></div><div><dt>{{ $t('inspection_applications_amount') }}</dt><dd>{{ formatAmount(application) }}</dd></div></dl>
-
-          <v-btn
-            block
-            color="primary"
-            :loading="navigatingApplicationId === application.id"
-            variant="outlined"
-            @click="openApplication(application)"
-          >{{ $t(actionLabelKey(application)) }}</v-btn></article></div>
+            <v-btn
+              v-else
+              block
+              color="primary"
+              :loading="navigatingApplicationId === application.id"
+              variant="outlined"
+              @click="openApplication(application)"
+            >{{ $t(actionLabelKey(application)) }}</v-btn>
+          </article>
+        </div>
       </v-card>
 
       <v-card v-else-if="hasLoaded && !loadError" class="applications-empty" elevation="0"><v-avatar color="primary" icon="mdi-file-document-outline" size="58" variant="tonal" /><h2>{{ $t(search.trim() || filterGroup !== 'all' ? 'inspection_applications_no_matches_title' : 'inspection_applications_empty_title') }}</h2><p>{{ $t(search.trim() || filterGroup !== 'all' ? 'inspection_applications_no_matches_description' : 'inspection_applications_empty_description') }}</p></v-card>
@@ -280,16 +389,25 @@
 </template>
 
 <style scoped>
-  .inspection-applications-view { padding-bottom: 24px; }.inspection-applications-view :deep(*) { font-weight: 400 !important; }.applications-heading { background: linear-gradient(112deg, #33447f, #27366f); border-radius: 17px; color: #fff; margin-bottom: 28px; min-height: 170px; padding: 34px 42px; }.applications-heading h1 { font-size: clamp(1.65rem, 2.7vw, 2.35rem); font-weight: 800 !important; line-height: 1.18; }.applications-heading p { color: rgba(255, 255, 255, .86); font-size: .98rem; margin-top: 13px; max-width: 760px; }.applications-controls { align-items: center; display: flex; gap: 14px; justify-content: space-between; margin-bottom: 20px; }.applications-status-filter { flex: 0 1 286px; }.applications-search { flex: 0 1 360px; }.applications-refresh { margin: -8px 0 8px; }.applications-state { align-items: center; color: #656776; display: flex; flex-direction: column; gap: 14px; justify-content: center; min-height: 360px; }.applications-error { margin-bottom: 20px; }.applications-list, .applications-empty { border: 1px solid #d4d5de; border-radius: 16px; box-shadow: 0 6px 16px rgba(31, 36, 69, .05); overflow: hidden; }.applications-table { table-layout: fixed; width: 100%; }.applications-table :deep(th) { background: #f7f8fc; color: #535867; font-size: .84rem; font-weight: 800 !important; white-space: nowrap; }.applications-table :deep(td) { color: #252934; font-size: .93rem; font-weight: 600 !important; padding-block: 17px; vertical-align: middle; }.applications-table :deep(tr:last-child td) { border-bottom: 0; }.applications-table :deep(.applications-table__reference) { width: 16%; }.applications-table :deep(.applications-table__vehicle) { width: 27%; }.applications-table :deep(.applications-table__date) { width: 17%; }.applications-table :deep(.applications-table__status) { width: 22%; }.applications-table :deep(.applications-table__amount) { width: 12%; }.applications-table :deep(.applications-table__action) { width: 16%; }.application-reference { color: #273d7a; font-family: 'Siemreap', sans-serif; font-size: .88rem; font-weight: 700 !important; overflow-wrap: anywhere; }.application-secondary { color: #5b5f6d; display: block; font-size: .84rem; font-weight: 600 !important; margin-top: 4px; overflow-wrap: anywhere; }.application-amount { font-variant-numeric: tabular-nums; white-space: nowrap; }.applications-cards { display: none; }.applications-empty { align-items: center; display: flex; flex-direction: column; justify-content: center; min-height: 280px; padding: 30px; text-align: center; }.applications-empty h2 { color: #20212a; font-size: 1.1rem; font-weight: 800 !important; margin-top: 14px; }.applications-empty p { color: #656776; font-size: .9rem; margin-top: 5px; max-width: 480px; }.applications-pagination { display: flex; justify-content: flex-end; margin-top: 24px; }.applications-pagination :deep(.v-pagination__list) { gap: 10px; justify-content: flex-end; }.applications-pagination :deep(.v-pagination__list > li) { margin: 0; }.applications-pagination :deep(.v-pagination__item), .applications-pagination :deep(.v-pagination__prev .v-btn), .applications-pagination :deep(.v-pagination__next .v-btn) { align-items: center; background: #fff; border: 1px solid #d5d7dc; border-radius: 9px; box-shadow: none; color: #20212a; display: inline-flex; font-size: .86rem; font-weight: 800 !important; height: 36px; justify-content: center; min-width: 36px; padding: 0; width: 36px; }.applications-pagination :deep(.v-pagination__item--is-active .v-btn) { background: #293675 !important; border-color: #293675 !important; color: #fff !important; opacity: 1 !important; } @media (max-width: 900px) { .applications-table { display: none; }.applications-cards { display: grid; gap: 0; }.application-card { border-bottom: 1px solid #e0e2e8; display: grid; gap: 15px; padding: 20px; }.application-card:last-child { border-bottom: 0; }.application-card__top { align-items: flex-start; display: flex; gap: 12px; justify-content: space-between; }.application-card__vehicle { display: grid; gap: 4px; }.application-card__vehicle strong { color: #252934; font-weight: 800 !important; overflow-wrap: anywhere; }.application-card__vehicle span { color: #5b5f6d; font-size: .88rem; font-weight: 600 !important; }.application-card__facts { display: grid; gap: 12px; grid-template-columns: repeat(2, minmax(0, 1fr)); }.application-card__facts div { display: grid; gap: 3px; }.application-card__facts dt { color: #727687; font-size: .75rem; font-weight: 800 !important; }.application-card__facts dd { color: #252934; font-size: .9rem; font-weight: 700 !important; margin: 0; overflow-wrap: anywhere; }.applications-pagination { justify-content: center; } } @media (max-width: 600px) { .applications-heading { border-radius: 14px; margin-bottom: 22px; min-height: 0; padding: 26px 22px; }.applications-heading p { font-size: .9rem; }.applications-controls { align-items: stretch; flex-direction: column; }.applications-status-filter, .applications-search { flex-basis: auto; width: 100%; }.applications-pagination :deep(.v-pagination__list) { gap: 5px; }.applications-pagination :deep(.v-pagination__item), .applications-pagination :deep(.v-pagination__prev .v-btn), .applications-pagination :deep(.v-pagination__next .v-btn) { height: 34px; min-width: 34px; width: 34px; } }
+  .inspection-applications-view { padding-bottom: 24px; }.inspection-applications-view :deep(*) { font-weight: 400 !important; }.applications-heading { background: linear-gradient(112deg, #33447f, #27366f); border-radius: 17px; color: #fff; margin-bottom: 28px; min-height: 170px; padding: 34px 42px; }.applications-heading h1 { font-size: clamp(1.65rem, 2.7vw, 2.35rem); font-weight: 800 !important; line-height: 1.18; }.applications-heading p { color: rgba(255, 255, 255, .86); font-size: .98rem; margin-top: 13px; max-width: 760px; }.applications-controls { align-items: center; display: flex; gap: 14px; justify-content: space-between; margin-bottom: 20px; }.applications-status-filter { flex: 0 1 286px; }.applications-search { flex: 0 1 360px; }.applications-refresh { margin: -8px 0 8px; }.applications-state { align-items: center; color: #656776; display: flex; flex-direction: column; gap: 14px; justify-content: center; min-height: 360px; }.applications-error { margin-bottom: 20px; }.applications-list, .applications-empty { border: 1px solid #d4d5de; border-radius: 16px; box-shadow: 0 6px 16px rgba(31, 36, 69, .05); overflow: hidden; }.applications-table { table-layout: fixed; width: 100%; }.applications-table :deep(th) { background: #f7f8fc; color: #535867; font-size: .84rem; font-weight: 800 !important; white-space: nowrap; }.applications-table :deep(td) { color: #252934; font-size: .93rem; font-weight: 600 !important; padding-block: 17px; vertical-align: middle; }.applications-table :deep(tr:last-child td) { border-bottom: 0; }.applications-table :deep(.applications-table__reference) { width: 16%; }.applications-table :deep(.applications-table__vehicle) { width: 27%; }.applications-table :deep(.applications-table__date) { width: 17%; }.applications-table :deep(.applications-table__status) { width: 22%; }.applications-table :deep(.applications-table__amount) { width: 12%; }.applications-table :deep(.applications-table__action) { width: 16%; }.application-reference { color: #2a3472; font-family: 'Siemreap', sans-serif; font-size: .88rem; font-weight: 700 !important; overflow-wrap: anywhere; }.application-secondary { color: #5b5f6d; display: block; font-size: .84rem; font-weight: 600 !important; margin-top: 4px; overflow-wrap: anywhere; }.application-amount { font-variant-numeric: tabular-nums; white-space: nowrap; }.applications-cards { display: none; }.applications-empty { align-items: center; display: flex; flex-direction: column; justify-content: center; min-height: 280px; padding: 30px; text-align: center; }.applications-empty h2 { color: #20212a; font-size: 1.1rem; font-weight: 800 !important; margin-top: 14px; }.applications-empty p { color: #656776; font-size: .9rem; margin-top: 5px; max-width: 480px; }.applications-pagination { display: flex; justify-content: flex-end; margin-top: 24px; }.applications-pagination :deep(.v-pagination__list) { gap: 10px; justify-content: flex-end; }.applications-pagination :deep(.v-pagination__list > li) { margin: 0; }.applications-pagination :deep(.v-pagination__item), .applications-pagination :deep(.v-pagination__prev .v-btn), .applications-pagination :deep(.v-pagination__next .v-btn) { align-items: center; background: #fff; border: 1px solid #d5d7dc; border-radius: 9px; box-shadow: none; color: #20212a; display: inline-flex; font-size: .86rem; font-weight: 800 !important; height: 36px; justify-content: center; min-width: 36px; padding: 0; width: 36px; }.applications-pagination :deep(.v-pagination__item--is-active .v-btn) { background: #293675 !important; border-color: #293675 !important; color: #fff !important; opacity: 1 !important; } @media (max-width: 900px) { .applications-table { display: none; }.applications-cards { display: grid; gap: 0; }.application-card { border-bottom: 1px solid #e0e2e8; display: grid; gap: 15px; padding: 20px; }.application-card:last-child { border-bottom: 0; }.application-card__top { align-items: flex-start; display: flex; gap: 12px; justify-content: space-between; }.application-card__vehicle { display: grid; gap: 4px; }.application-card__vehicle strong { color: #252934; font-weight: 800 !important; overflow-wrap: anywhere; }.application-card__vehicle span { color: #5b5f6d; font-size: .88rem; font-weight: 600 !important; }.application-card__facts { display: grid; gap: 12px; grid-template-columns: repeat(2, minmax(0, 1fr)); }.application-card__facts div { display: grid; gap: 3px; }.application-card__facts dt { color: #727687; font-size: .75rem; font-weight: 800 !important; }.application-card__facts dd { color: #252934; font-size: .9rem; font-weight: 700 !important; margin: 0; overflow-wrap: anywhere; }.applications-pagination { justify-content: center; } } @media (max-width: 600px) { .applications-heading { border-radius: 14px; margin-bottom: 22px; min-height: 0; padding: 26px 22px; }.applications-heading p { font-size: .9rem; }.applications-controls { align-items: stretch; flex-direction: column; }.applications-status-filter, .applications-search { flex-basis: auto; width: 100%; }.applications-pagination :deep(.v-pagination__list) { gap: 5px; }.applications-pagination :deep(.v-pagination__item), .applications-pagination :deep(.v-pagination__prev .v-btn), .applications-pagination :deep(.v-pagination__next .v-btn) { height: 34px; min-width: 34px; width: 34px; } }
 
   .applications-heading h1 { font-size: clamp(1.35rem, 2vw, 1.72rem); font-weight: 400 !important; }
-  .applications-heading p { font-size: .94rem; }
+  .inspection-applications-view .applications-heading { background: none; border-radius: 0; color: inherit; margin-bottom: 22px; min-height: 0; padding: 0; }
+  .inspection-applications-view .applications-heading h1 { color: #10172d; }
+  .inspection-applications-view .applications-heading p { color: #656776; font-size: .95rem !important; margin-top: 12px; }
   .applications-state, .applications-error { font-size: .94rem; }
+  .application-status-chip--info { background: #e8f4fc !important; color: #1683bd !important; }
+  .application-status-chip--secondary { background: #f7f2ff !important; color: #6b21a8 !important; }
+  .application-status-chip--success { background: #ecfdf3 !important; color: #166534 !important; }
+  .application-status-chip--warning { background: #fff3e8 !important; color: #c25f00 !important; }
+  .application-status-chip--error { background: #fff0f0 !important; color: #b42318 !important; }
+  .application-status-action { font-size: .84rem; letter-spacing: 0; min-height: 28px; padding-inline: 10px; text-transform: none; }
+  .application-status-action:focus-visible { outline: 3px solid rgba(42, 52, 114, .3); outline-offset: 2px; }
   .applications-controls :deep(.v-field-label) { font-size: .86rem; }
   .applications-status-filter :deep(.v-select__selection-text), .applications-search :deep(.v-field__input) { font-size: .94rem; }
   .applications-table :deep(th) { font-size: .88rem; }
   .applications-table :deep(td) { font-size: .94rem; }
-  .application-reference { font-size: .86rem; }
+  .application-reference { color: #2a3472 !important; font-size: .86rem; }
   .application-secondary { font-size: .86rem; }
   .applications-list :deep(.v-chip), .applications-cards :deep(.v-chip) { font-size: .84rem; }
   .applications-list :deep(.v-btn), .applications-cards :deep(.v-btn) { font-size: .86rem; }
@@ -301,12 +419,11 @@
   .applications-table :deep(td) { font-weight: 400 !important; }
   .applications-table :deep(td.application-reference), .applications-table :deep(td.application-amount) { font-weight: 400 !important; }
   .application-secondary, .applications-list :deep(.v-chip), .applications-list :deep(.v-btn) { font-weight: 400 !important; }
-  .applications-empty h2 { font-weight: 600 !important; }
+  .applications-empty h2 { font-weight: 400 !important; }
   .applications-pagination :deep(.v-pagination__item .v-btn), .applications-pagination :deep(.v-pagination__prev .v-btn), .applications-pagination :deep(.v-pagination__next .v-btn) { font-weight: 600 !important; }
   .inspection-applications-view .applications-controls .applications-status-filter :deep(.v-select__selection-text),
   .inspection-applications-view .applications-controls .applications-search :deep(.v-field__input) { font-size: .9rem !important; }
   .inspection-applications-view .applications-list .applications-table :deep(th) { font-size: .85rem !important; font-weight: 400 !important; }
-  .inspection-applications-view .application-submitted-date { color: #2a3472 !important; }
 
   @media (max-width: 900px) {
     .application-card__top .application-reference, .application-card__facts > div:last-child dd { font-weight: 400 !important; }
